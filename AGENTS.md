@@ -10,6 +10,8 @@
 | `addon_updater_ops.py` | Blender integration for the updater |
 | `LICENSE.GPL` | Project license |
 | `modules/asset/blender_re_asset.py` | Asset-browser import dispatch and editor operator status handling |
+| `modules/asset/native_browser.py` | Custom Blender API v1 `reengine` provider, local catalog service and action routing |
+| `docs/reengine-browser.md` | Lightweight preview scope, installation and other-machine acceptance checklist |
 | `tools/test_owots_formats.py` | OWOTS mesh, MDF and texture regression checks |
 | `tools/test_pak_chunk_reader.py` | PAK v4.2 reader, cache v3 and MP failure regression tests |
 | `tools/validate_owots_pak.py` | Direct/cache/MP real PAK comparison and priority report |
@@ -29,6 +31,7 @@
 ## Dependencies
 - Blender 5.2 is the target for the Onimusha: Way of the Sword adaptation.
 - RE Mesh Editor imports meshes and materials; RE Chain Editor imports physics chains. Their game enums and format support must match the asset library.
+- The optional `reengine` browser requires custom `_remote_asset_browser` API v1; GPU previews additionally require `gpu.texture.from_bytes()`. The ordinary Asset Browser remains available in official Blender.
 - Python dependencies used by the add-on include `zstandard` and `requests`; Blender supplies `bpy` and `mathutils`.
 - Local reference repositories are siblings, not bundled dependencies: `REE.PAK.Tool` and `REE-Content-Editor` (including `RE-Engine-Lib`).
 

@@ -8,6 +8,10 @@
 
 ---
 
+# 自定义 Blender：RE Engine 扩展浏览器
+
+支持扩展 API v1 的自定义 Blender 5.2 可在文件浏览器中选择 **RE Engine**（`reengine`）。模型双击预览使用 LOD2 → LOD1 → LOD0 回退和基础颜色 GPU 贴图；完整导入仍走原 RE Mesh Editor 流程。设置、能力要求和另一台电脑的实测清单见 [RE Engine 扩展浏览器](docs/reengine-browser.md)。此适配的真实游戏资源与视觉验收待在持有游戏的电脑上完成。
+
 # 本分叉：Onimusha: Way of the Sword / Blender 5.2
 
 本分叉继续维护《鬼武者：Way of the Sword》的资源库适配，游戏标识为 `OWOTS`，与 `ONI2`（鬼武者 2）不同。适配以 Blender 5.2 为验收基线。

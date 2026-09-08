@@ -16,8 +16,13 @@
 | `test_pak_chunk_reader.py` | Regression tests for v4.2 PAK chunk offsets, raw/ZSTD blocks, and final-size trimming. |
 | `validate_owots_pak.py` | Compares direct, cache-backed and MP-worker reads of a real chunked OWOTS entry. |
 | `test_asset_browser_dispatch.py` | Headless Blender append test for PAK extraction and deferred asset import dispatch. |
+| `test_reengine_browser.py` | Pure tests for catalog paths/IDs, resource resolution, import handoff and provider rollback. |
+| `test_reengine_preview_data.py` | Pure tests for LOD2 fallback, material ranges, base-color TEX selection and RGBA decoding. |
+| `test_reengine_gpu_preview.py` | CPU-to-GPU contract and preview lifecycle checks with Blender/GPU stubs. |
 
 ## Common Patterns
+
+- For the custom browser static gate, run `python -m unittest tools.test_reengine_browser tools.test_reengine_preview_data tools.test_catalog_path_migration tools.test_pak_chunk_reader -v` and `python tools/test_reengine_gpu_preview.py`. These do not establish real shader output or game-file fidelity; follow `docs/reengine-browser.md` on the game machine.
 
 - Run the validator inside Blender 5.2 with `--background --factory-startup -noaudio`.
 - Set `BLENDER_USER_CONFIG` and `BLENDER_USER_SCRIPTS` to a temporary directory before launching Blender.

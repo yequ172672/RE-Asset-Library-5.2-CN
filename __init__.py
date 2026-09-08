@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 25, 2),
+	"version": (0, 25, 3),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -56,6 +56,11 @@ from .modules.asset.blender_re_asset import (
 	importREChainAsset,
 	importREChain2Asset,
 	importREFBXSkelAsset,
+	)
+from .modules.asset.native_browser import (
+	CLASSES as REENGINE_BROWSER_CLASSES,
+	register as register_reengine_browser,
+	unregister as unregister_reengine_browser,
 	)
 from .modules.asset.re_asset_operators import (
 	getGameNameFromAssetBrowser,
@@ -828,6 +833,7 @@ classes = [
 	WM_OT_ExportCatalogDiff,
 	WM_OT_ImportCatalogDiff,
 	WM_OT_PackageREAssetLibrary,
+	*REENGINE_BROWSER_CLASSES,
 	OBJECT_PT_ExtractGameFilesPanel,
 	OBJECT_PT_REAssetLibraryPanel,
 	ASSETBROWSER_PT_REAssetToolPanel,
@@ -844,6 +850,13 @@ def register():
 	addon_updater_ops.register(bl_info)
 	for classEntry in classes:
 		bpy.utils.register_class(classEntry)
+	# The custom provider is registered only after its action operators and
+	# provider-scoped panel exist.  Blender's official builds simply return
+	# False here and continue using the regular Asset Browser workflow.
+	try:
+		register_reengine_browser()
+	except Exception as err:
+		print(f"Failed to register RE Engine Extension Browser: {err}")
 		
 	bpy.types.ASSETBROWSER_MT_editor_menus.append(re_asset_settings_button)
 	bpy.types.ASSETBROWSER_MT_editor_menus.append(re_asset_open_file_location_button)
@@ -865,6 +878,12 @@ def register():
 		print(f"Failed to copy RE Asset workspace blend file {str(err)}")
 	
 def unregister():
+	# Invalidate the provider before stopping its loopback server or removing
+	# action operators and GPU preview resources.
+	try:
+		unregister_reengine_browser()
+	except Exception as err:
+		print(f"Failed to unregister RE Engine Extension Browser: {err}")
 	translations.unregister(__name__)
 	addon_updater_ops.unregister()
 	for classEntry in classes:
