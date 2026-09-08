@@ -39,11 +39,12 @@ gameNameMDFVersionDict = {
 	"ONI2":46,
 	"PRAG":51,
 	"RE9":51,
+	"OWOTS":51,
 	}
 def getMDFVersionToGameName(gameName):
 	return gameNameMDFVersionDict.get(gameName,-1)
 class SIZEDATA():
-	def __init__(self,version):
+	def __init__(self,version,isOnimushaVariant=False):
 		self.HEADER_SIZE = 16
 		self.MATERIAL_ENTRY_SIZE = 80
 		self.TEXTURE_ENTRY_SIZE = 32
@@ -58,7 +59,7 @@ class SIZEDATA():
 		if version >= 31:
 			self.MATERIAL_ENTRY_SIZE = 100
 		if version >= 51:
-			self.MATERIAL_ENTRY_SIZE = 108
+			self.MATERIAL_ENTRY_SIZE = 104 if isOnimushaVariant else 108
 c_int32 = ctypes.c_int32
 
 
@@ -301,6 +302,8 @@ class Material():
 		self.ver32Unkn1 = -1#Unused, kept for legacy support
 		self.ver32Unkn2 = -1#Unused, kept for legacy support
 		self.ver51UnknOffset = 0#Pragmata demo, unkn struct pointer
+		self.ver51UnknValue = 0#Onimusha v51 uint stored before textureCount
+		self.isOnimushaVariant = False
 		self.propHeadersOffset = 0
 		self.texHeadersOffset = 0
 		self.GPUBufferOffset = 0
@@ -325,6 +328,16 @@ class Material():
 		debugprint("matNameHash:"+str(self.matNameHash))
 		self.propBlockSize = read_int(file)
 		self.propertyCount = read_int(file)
+		if version == 51:
+			# Onimusha's v51 header inserts a uint after paramCount and omits
+			# the later v51 uint64. The upper half of the later field is 0/1
+			# in the regular v51 layout, while the Onimusha param offset is > 1.
+			currentPos = file.tell()
+			file.seek(currentPos + 36)
+			self.isOnimushaVariant = read_uint(file) > 1
+			file.seek(currentPos)
+			if self.isOnimushaVariant:
+				self.ver51UnknValue = read_uint(file)
 		self.textureCount = read_int(file)
 		if version >= 19:
 			self.GPBFBufferNameCount = read_int(file)
@@ -341,7 +354,7 @@ class Material():
 			self.flags.asInt32 = read_int(file)
 		#debugprint("flags:"+str(self.flags.asInt32))
 		
-		if version >= 51:
+		if version >= 51 and not self.isOnimushaVariant:
 			self.ver51UnknOffset = read_uint64(file)
 		self.propHeadersOffset = read_uint64(file)
 		self.texHeadersOffset = read_uint64(file)
@@ -410,11 +423,21 @@ class Material():
 		#self.matNameHash = read_uint(file)
 		#self.propBlockSize = read_int(file)
 		#self.propertyCount = read_int(file)
+		if version == 51:
+			currentPos = file.tell()
+			file.seek(currentPos + 36)
+			self.isOnimushaVariant = read_uint(file) > 1
+			file.seek(currentPos)
+			if self.isOnimushaVariant:
+				self.ver51UnknValue = read_uint(file)
 		self.textureCount = read_int(file)
-		file.seek(24,1)
-		if version >= 31:
-			file.seek(12,1)
-		if version >= 51:
+		if version >= 31 and self.isOnimushaVariant:
+			file.seek(36,1)
+		else:
+			file.seek(24,1)
+			if version >= 31:
+				file.seek(12,1)
+		if version >= 51 and not self.isOnimushaVariant:
 			file.seek(8,1)
 		#self.flags.read(file)
 		#self.shaderType = read_int(file)
@@ -435,7 +458,7 @@ class Material():
 		self.textureList = []
 		for i in range(0,self.textureCount):
 			textureEntry = TextureBinding()
-			textureEntry.read(file)
+			textureEntry.read(file,version)
 			debugprint(textureEntry)
 			self.textureList.append(textureEntry)
 		"""
@@ -453,6 +476,8 @@ class Material():
 		write_uint(file, self.matNameHash)
 		write_int(file, self.propBlockSize)
 		write_int(file, self.propertyCount)
+		if version == 51 and self.isOnimushaVariant:
+			write_uint(file, self.ver51UnknValue)
 		write_int(file, self.textureCount)
 		if version >= 19:
 			write_int(file,self.GPBFBufferNameCount)
@@ -469,7 +494,7 @@ class Material():
 			write_int(file, self.shaderLODNum)
 		else:
 			write_int(file,self.flags.asInt32)
-		if version >= 51:
+		if version >= 51 and not self.isOnimushaVariant:
 			write_uint64(file, self.ver51UnknOffset)
 		write_uint64(file, self.propHeadersOffset)
 		write_uint64(file, self.texHeadersOffset)
@@ -488,6 +513,7 @@ class MDFFile():
 		self.sizeData = None
 		self.Header = MDFHeader()
 		self.materialList = []
+		self.isOnimushaVariant = False
 		self.stringList = []#Used during writing
 	def read(self,file,version):
 		self.Header.read(file)
@@ -497,6 +523,7 @@ class MDFFile():
 			materialEntry.read(file,version)
 			debugprint(materialEntry)
 			self.materialList.append(materialEntry)
+		self.isOnimushaVariant = any(material.isOnimushaVariant for material in self.materialList)
 		
 	def read_fast(self,file,version):
 		self.Header.read_fast(file)
@@ -506,13 +533,18 @@ class MDFFile():
 			materialEntry.read_fast(file,version)
 			debugprint(materialEntry)
 			self.materialList.append(materialEntry)
+		self.isOnimushaVariant = any(material.isOnimushaVariant for material in self.materialList)
 	
 	def getMaterialDict(self):
 		return {material.materialName: material for material in self.materialList}
 	
 	def recalculateHashesAndOffsets(self,version):
 		self.Header.materialCount = len(self.materialList)
-		self.sizeData = SIZEDATA(version)
+		self.isOnimushaVariant = self.isOnimushaVariant or any(material.isOnimushaVariant for material in self.materialList)
+		if self.isOnimushaVariant:
+			for material in self.materialList:
+				material.isOnimushaVariant = True
+		self.sizeData = SIZEDATA(version, self.isOnimushaVariant)
 		materialEntriesSize = self.sizeData.MATERIAL_ENTRY_SIZE * len(self.materialList)
 		textureEntriesSize = 0
 		propertyEntriesSize = 0
@@ -776,6 +808,7 @@ def readMDFFast(filepath):
 		raiseWarning("No number extension found on mdf file, defaulting to version 23")
 		version = 23
 	mdfFile = MDFFile()
+	mdfFile.fileVersion = version
 	debugprint("File Version "+str(version))
 	mdfFile.read_fast(file,version)
 	file.close()

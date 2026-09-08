@@ -1,0 +1,576 @@
+diff --git a/.gitignore b/.gitignore
+index 6c6c70a..4bcdd13 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,4 +1,6 @@
+ *.pyc
++*_updater/
++TextureCache/
+ # Spyder project settings
+ .spyderproject
+ .spyproject
+diff --git a/__init__.py b/__init__.py
+index b713bed..819b7d3 100644
+--- a/__init__.py
++++ b/__init__.py
+@@ -2,7 +2,7 @@
+ bl_info = {
+ 	"name": "RE Mesh Editor",
+ 	"author": "NSA Cloud",
+-	"version": (0, 66),
++	"version": (0, 66, 1),
+ 	"blender": (4, 3, 2),
+ 	"location": "File > Import-Export",
+ 	"description": "Import and export RE Engine Mesh files natively into Blender. No Noesis required.",
+@@ -285,6 +285,7 @@ class ChunkPathPropertyGroup(bpy.types.PropertyGroup):
+ 		("KG", "Kunitsu-Gami", ""),
+ 		("DR", "Dead Rising", ""),
+ 		("ONI2", "Onimusha 2", ""),
++		("OWOTS", "Onimusha: Way of the Sword", ""),
+ 		("MHWILDS", "Monster Hunter Wilds", ""),
+ 		("PRAG", "Pragmata", ""),
+ 		("MHS3", "Monster Hunter Stories 3", ""),
+@@ -948,6 +949,7 @@ class ExportREMesh(Operator, ExportHelper):
+ 				(".240306278", "Kunitsu-Gami", "Kunitsu-Gami"),
+ 				(".240424828", "Dead Rising", "Dead Rising"),
+ 				(".240827123", "Onimusha 2", "Onimusha 2"),
++				(".260209350", "Onimusha: Way of the Sword", "Onimusha: Way of the Sword"),
+ 				(".241111606", "Monster Hunter Wilds", "Monster Hunter Wilds"),
+ 				#(".250925211", "Resident Evil 9 / Pragmata", "Resident Evil 9 / Pragmata"),
+ 				(".250925211", "Resident Evil 9", "Resident Evil 9"),
+@@ -1216,7 +1218,9 @@ class ExportREMDF(bpy.types.Operator, ExportHelper):
+ 				(".40", "Dragon's Dogma 2 / Kunitsu-Gami / Dead Rising", "Dragon's Dogma 2, Kunitsu-Gami, Dead Rising"),
+ 				(".46", "Onimusha 2", "Onimusha 2"),
+ 				(".45", "Monster Hunter Wilds", "Monster Hunter Wilds"),
+-				(".51", "Resident Evil 9 / Pragmata", "Resident Evil 9 / Pragmata"),
++				# Version 51 is shared by RE9/Pragmata and Onimusha; the MDF parser
++				# selects the Onimusha variant from the material header when needed.
++				(".51", "Resident Evil 9 / Pragmata / Onimusha: WotS", "Resident Evil 9, Pragmata and Onimusha: WotS"),
+ 				(".49", "Monster Hunter Stories 3", "Monster Hunter Stories 3"),
+ 			  ]
+ 		)
+@@ -1860,4 +1864,3 @@ def unregister():
+ 		bpy.utils.unregister_class(SFUR_FH_drag_import)
+ if __name__ == '__main__':
+ 	register()
+-	
+\ No newline at end of file
+diff --git a/modules/mdf/blender_re_mdf.py b/modules/mdf/blender_re_mdf.py
+index 2a03f45..603d33f 100644
+--- a/modules/mdf/blender_re_mdf.py
++++ b/modules/mdf/blender_re_mdf.py
+@@ -239,7 +239,9 @@ def importMDFFile(filePath,parentCollection = None):
+ 	try:
+ 		mdfVersion = int(os.path.splitext(filePath)[1].replace(".",""))
+ 		if mdfVersion in gameNameMDFVersionDict:
+-			gameName = gameNameMDFVersionDict[mdfVersion]
++			# v51 is shared by RE9/Pragmata and Way of the Sword. The
++			# material header variant is authoritative for direct MDF imports.
++			gameName = "OWOTS" if mdfFile.isOnimushaVariant else gameNameMDFVersionDict[mdfVersion]
+ 			if gameName in MDFGameNameConflictDict:
+ 				gameName = resolveMDFGameNameConflict(gameName, mdfFile, filePath)
+ 				print(f"MDF version {str(mdfVersion)} is used by more than one game, detected {gameName}")
+@@ -426,6 +428,7 @@ def buildMDF(mdfCollectionName,mdfVersion = None):
+ 		newMDFFile = MDFFile()
+ 		newMDFFile.fileVersion = mdfVersion
+ 		newMDFFile.Header.version = 1
++		newMDFFile.isOnimushaVariant = bpy.context.scene.re_mdf_toolpanel.activeGame == "OWOTS"
+ 		if mdfVersion == 45:#MHWILDS
+ 			newMDFFile.Header.materialFlags = 1
+ 			
+@@ -526,4 +529,4 @@ def exportMDFFile(filepath,mdfCollectionName = ""):
+ 		writeMDF(mdfFile,filepath)
+ 		return True
+ 	else:
+-		return False
+\ No newline at end of file
++		return False
+diff --git a/modules/mdf/blender_re_mesh_mdf.py b/modules/mdf/blender_re_mesh_mdf.py
+index 7727804..634f50a 100644
+--- a/modules/mdf/blender_re_mesh_mdf.py
++++ b/modules/mdf/blender_re_mesh_mdf.py
+@@ -282,6 +282,7 @@ def findMDFPathFromMeshPath(meshPath,gameName = None):
+ 		".241111606":".45",#MHWILDS
+ 		".240827123":".46",#ONI2
+ 		".250604100":".49",#MHS3
++		".260209350":".51",#OWOTS
+ 		#".250925211":".51",#PRAG
+ 		".250925211":".51",#RE9
+ 		
+@@ -368,6 +369,14 @@ def findMDFPathFromMeshPath(meshPath,gameName = None):
+ 						if not os.path.isfile(mdfPath):
+ 							newFileName = f"mat_{stageID}_00.mdf2{mdfVersion}"
+ 							mdfPath = os.path.join(newDir,newFileName)
++				if gameName == "OWOTS" and not os.path.isfile(mdfPath):
++					# Way of the Sword has several material suffix conventions
++					# (_c/_b for character variants and _st/_tr/_pdo for VFX).
++					# Only auto-select an unambiguous same-directory candidate;
++					# ambiguous groups require the explicit MDF picker.
++					candidates = [p for p in glob.glob(f"{fileRoot}_*.mdf2{mdfVersion}") if "_event_" not in p.lower()]
++					if len(candidates) == 1:
++						mdfPath = candidates[0]
+ 		except:
+ 			pass
+ 	if mdfPath == None or not os.path.isfile(mdfPath):
+@@ -388,11 +397,11 @@ texVersionDict = {
+ 	45:".241106027",
+ 	51:".250813143",
+   }	
+-def getTexPath(baseTexturePath,chunkPathList,mdfVersion):
++def getTexPath(baseTexturePath,chunkPathList,mdfVersion,gameName=None):
+ 	
+ 	
+ 	inputPath = None
+-	texVersion = texVersionDict.get(mdfVersion,"")
++	texVersion = ".251111100" if gameName == "OWOTS" else texVersionDict.get(mdfVersion,"")
+ 	for chunkPath in chunkPathList:
+ 		inputPath = wildCardFileSearch(glob.escape(os.path.join(chunkPath,"streaming",baseTexturePath+f".tex{texVersion}"))+"*")#Searches for texture even if the version is known because capcom can add platform or lang extensions
+ 		
+@@ -476,7 +485,7 @@ def importMDF(mdfFile,meshMaterialDict,loadUnusedTextures,loadUnusedProps,useBac
+ 					baseTexturePath = texture.replace("@","").replace(".tex","").replace('/',os.sep)
+ 					outputPath = os.path.join(TEXTURE_CACHE_DIR,baseTexturePath+".png")
+ 					
+-					texPath = getTexPath(baseTexturePath,chunkPathList,mdfVersion)
++					texPath = getTexPath(baseTexturePath,chunkPathList,mdfVersion,gameName)
+ 					
+ 					if texPath != None:
+ 						if texPath not in loadedImageDict:
+@@ -1798,4 +1807,4 @@ def importMDF(mdfFile,meshMaterialDict,loadUnusedTextures,loadUnusedProps,useBac
+ 	if inErrorState:
+ 		showErrorMessageBox("An error occurred while importing materials. See the Window > Toggle System Console for details.")
+ 	else:
+-		print("Finished loading materials.")
+\ No newline at end of file
++		print("Finished loading materials.")
+diff --git a/modules/mdf/file_re_mdf.py b/modules/mdf/file_re_mdf.py
+index 08d9d75..67603cb 100644
+--- a/modules/mdf/file_re_mdf.py
++++ b/modules/mdf/file_re_mdf.py
+@@ -39,11 +39,12 @@ gameNameMDFVersionDict = {
+ 	"ONI2":46,
+ 	"PRAG":51,
+ 	"RE9":51,
++	"OWOTS":51,
+ 	}
+ def getMDFVersionToGameName(gameName):
+ 	return gameNameMDFVersionDict.get(gameName,-1)
+ class SIZEDATA():
+-	def __init__(self,version):
++	def __init__(self,version,isOnimushaVariant=False):
+ 		self.HEADER_SIZE = 16
+ 		self.MATERIAL_ENTRY_SIZE = 80
+ 		self.TEXTURE_ENTRY_SIZE = 32
+@@ -58,7 +59,7 @@ class SIZEDATA():
+ 		if version >= 31:
+ 			self.MATERIAL_ENTRY_SIZE = 100
+ 		if version >= 51:
+-			self.MATERIAL_ENTRY_SIZE = 108
++			self.MATERIAL_ENTRY_SIZE = 104 if isOnimushaVariant else 108
+ c_int32 = ctypes.c_int32
+ 
+ 
+@@ -304,6 +305,8 @@ class Material():
+ 		self.ver32Unkn1 = -1#Unused, kept for legacy support
+ 		self.ver32Unkn2 = -1#Unused, kept for legacy support
+ 		self.ver51UnknOffset = 0#Pragmata demo, unkn struct pointer
++		self.ver51UnknValue = 0#Onimusha v51 uint stored before textureCount
++		self.isOnimushaVariant = False
+ 		self.propHeadersOffset = 0
+ 		self.texHeadersOffset = 0
+ 		self.GPUBufferOffset = 0
+@@ -328,6 +331,16 @@ class Material():
+ 		debugprint("matNameHash:"+str(self.matNameHash))
+ 		self.propBlockSize = read_int(file)
+ 		self.propertyCount = read_int(file)
++		if version == 51:
++			# Onimusha's v51 header inserts a uint after paramCount and omits
++			# the later v51 uint64. The upper half of the later field is 0/1
++			# in the regular v51 layout, while the Onimusha param offset is > 1.
++			currentPos = file.tell()
++			file.seek(currentPos + 36)
++			self.isOnimushaVariant = read_uint(file) > 1
++			file.seek(currentPos)
++			if self.isOnimushaVariant:
++				self.ver51UnknValue = read_uint(file)
+ 		self.textureCount = read_int(file)
+ 		if version >= 19:
+ 			self.GPBFBufferNameCount = read_int(file)
+@@ -344,7 +357,7 @@ class Material():
+ 			self.flags.asInt32 = read_int(file)
+ 		#debugprint("flags:"+str(self.flags.asInt32))
+ 		
+-		if version >= 51:
++		if version >= 51 and not self.isOnimushaVariant:
+ 			self.ver51UnknOffset = read_uint64(file)
+ 		self.propHeadersOffset = read_uint64(file)
+ 		self.texHeadersOffset = read_uint64(file)
+@@ -413,11 +426,21 @@ class Material():
+ 		#self.matNameHash = read_uint(file)
+ 		#self.propBlockSize = read_int(file)
+ 		#self.propertyCount = read_int(file)
++		if version == 51:
++			currentPos = file.tell()
++			file.seek(currentPos + 36)
++			self.isOnimushaVariant = read_uint(file) > 1
++			file.seek(currentPos)
++			if self.isOnimushaVariant:
++				self.ver51UnknValue = read_uint(file)
+ 		self.textureCount = read_int(file)
+-		file.seek(24,1)
+-		if version >= 31:
+-			file.seek(12,1)
+-		if version >= 51:
++		if version >= 31 and self.isOnimushaVariant:
++			file.seek(36,1)
++		else:
++			file.seek(24,1)
++			if version >= 31:
++				file.seek(12,1)
++		if version >= 51 and not self.isOnimushaVariant:
+ 			file.seek(8,1)
+ 		#self.flags.read(file)
+ 		#self.shaderType = read_int(file)
+@@ -438,7 +461,7 @@ class Material():
+ 		self.textureList = []
+ 		for i in range(0,self.textureCount):
+ 			textureEntry = TextureBinding()
+-			textureEntry.read(file)
++			textureEntry.read(file,version)
+ 			debugprint(textureEntry)
+ 			self.textureList.append(textureEntry)
+ 		"""
+@@ -456,6 +479,8 @@ class Material():
+ 		write_uint(file, self.matNameHash)
+ 		write_int(file, self.propBlockSize)
+ 		write_int(file, self.propertyCount)
++		if version == 51 and self.isOnimushaVariant:
++			write_uint(file, self.ver51UnknValue)
+ 		write_int(file, self.textureCount)
+ 		if version >= 19:
+ 			write_int(file,self.GPBFBufferNameCount)
+@@ -472,7 +497,7 @@ class Material():
+ 			write_int(file, self.shaderLODNum)
+ 		else:
+ 			write_int(file,self.flags.asInt32)
+-		if version >= 51:
++		if version >= 51 and not self.isOnimushaVariant:
+ 			write_uint64(file, self.ver51UnknOffset)
+ 		write_uint64(file, self.propHeadersOffset)
+ 		write_uint64(file, self.texHeadersOffset)
+@@ -491,6 +516,7 @@ class MDFFile():
+ 		self.sizeData = None
+ 		self.Header = MDFHeader()
+ 		self.materialList = []
++		self.isOnimushaVariant = False
+ 		self.stringList = []#Used during writing
+ 	def read(self,file,version):
+ 		self.Header.read(file)
+@@ -500,6 +526,7 @@ class MDFFile():
+ 			materialEntry.read(file,version)
+ 			debugprint(materialEntry)
+ 			self.materialList.append(materialEntry)
++		self.isOnimushaVariant = any(material.isOnimushaVariant for material in self.materialList)
+ 		
+ 	def read_fast(self,file,version):
+ 		self.Header.read_fast(file)
+@@ -509,13 +536,18 @@ class MDFFile():
+ 			materialEntry.read_fast(file,version)
+ 			debugprint(materialEntry)
+ 			self.materialList.append(materialEntry)
++		self.isOnimushaVariant = any(material.isOnimushaVariant for material in self.materialList)
+ 	
+ 	def getMaterialDict(self):
+ 		return {material.materialName: material for material in self.materialList}
+ 	
+ 	def recalculateHashesAndOffsets(self,version):
+ 		self.Header.materialCount = len(self.materialList)
+-		self.sizeData = SIZEDATA(version)
++		self.isOnimushaVariant = self.isOnimushaVariant or any(material.isOnimushaVariant for material in self.materialList)
++		if self.isOnimushaVariant:
++			for material in self.materialList:
++				material.isOnimushaVariant = True
++		self.sizeData = SIZEDATA(version, self.isOnimushaVariant)
+ 		materialEntriesSize = self.sizeData.MATERIAL_ENTRY_SIZE * len(self.materialList)
+ 		textureEntriesSize = 0
+ 		propertyEntriesSize = 0
+@@ -779,6 +811,7 @@ def readMDFFast(filepath):
+ 		raiseWarning("No number extension found on mdf file, defaulting to version 23")
+ 		version = 23
+ 	mdfFile = MDFFile()
++	mdfFile.fileVersion = version
+ 	debugprint("File Version "+str(version))
+ 	mdfFile.read_fast(file,version)
+ 	file.close()
+diff --git a/modules/mdf/re_mdf_propertyGroups.py b/modules/mdf/re_mdf_propertyGroups.py
+index 60751eb..75ea26f 100644
+--- a/modules/mdf/re_mdf_propertyGroups.py
++++ b/modules/mdf/re_mdf_propertyGroups.py
+@@ -233,6 +233,7 @@ class MDFToolPanelPropertyGroup(bpy.types.PropertyGroup):
+ 				("KG", "Kunitsu-Gami", ""),
+ 				("DR", "Dead Rising", ""),
+ 				("ONI2", "Onimusha 2", ""),
++				("OWOTS", "Onimusha: Way of the Sword", ""),
+ 				("MHWILDS", "Monster Hunter Wilds", ""),
+ 				("PRAG", "Pragmata", ""),
+ 				("MHS3", "Monster Hunter Stories 3", ""),
+@@ -770,4 +771,4 @@ class MDFMaterialPropertyGroup(bpy.types.PropertyGroup):
+ 	mmtrsData_index: IntProperty(name="")
+ 	
+ 	gpbfData_items: CollectionProperty(type = MDFGPBFDataPropertyGroup)
+-	gpbfData_index: IntProperty(name="")
+\ No newline at end of file
++	gpbfData_index: IntProperty(name="")
+diff --git a/modules/mesh/blender_re_mesh.py b/modules/mesh/blender_re_mesh.py
+index 3583632..12e4349 100644
+--- a/modules/mesh/blender_re_mesh.py
++++ b/modules/mesh/blender_re_mesh.py
+@@ -1013,7 +1013,7 @@ def exportREMeshFile(filePath,options):
+ 	maxWeightsPerVertex = 8
+ 	maxWeightsPerVertexExtended = 16
+ 	maxWeightedBones = 256
+-	SIX_WEIGHT_GAMES = set(["SF6","MHWILDS","PRAG"])
++	SIX_WEIGHT_GAMES = set(["SF6","MHWILDS","PRAG","OWOTS"])
+ 	EXTENDED_WEIGHT_GAMES = set(["MHWILDS","PRAG","MHS3",])#Games with support for extended weight buffers
+ 	if gameName in SIX_WEIGHT_GAMES:
+ 		maxWeightsPerVertex = 6
+@@ -1841,4 +1841,3 @@ def exportREMeshFile(filePath,options):
+ 		showMessageBox("Warnings occured during export. Check Window > Toggle System Console for details.",title = "Mesh Export Warning", icon = "ERROR")
+ 	print("\033[92m__________________________________\nRE Mesh export finished.\033[0m")
+ 	return True	
+-	
+\ No newline at end of file
+diff --git a/modules/mesh/file_re_mesh.py b/modules/mesh/file_re_mesh.py
+index c7d5def..8e4c938 100644
+--- a/modules/mesh/file_re_mesh.py
++++ b/modules/mesh/file_re_mesh.py
+@@ -58,12 +58,14 @@ VERSION_MHWILDS = 130#file:241111606,internal:240704828
+ VERSION_PRAGDEMO = 135#file:250925211,internal:250707828
+ VERSION_MHS3 = 136#file:250604100,internal:250203152
+ VERSION_RE9 = 140#file:250925211,internal:250707828#RE9 Placeholder
++VERSION_OWOTS = 145#file:260209350,internal:250203152
+ 
+ SIX_WEIGHT_GAMES = frozenset([
+ 	VERSION_SF6,
+ 	VERSION_MHWILDS,
+ 	VERSION_MHS3,
+ 	VERSION_PRAGDEMO,
++	VERSION_OWOTS,
+ 	])
+ 
+ meshFileVersionToNewVersionDict = {
+@@ -87,6 +89,7 @@ meshFileVersionToNewVersionDict = {
+ 	250604100:VERSION_MHS3,
+ 	#250925211:VERSION_PRAGDEMO,
+ 	250925211:VERSION_RE9,
++	260209350:VERSION_OWOTS,
+ 	}
+ newVersionToMeshFileVersion = {
+ 	VERSION_DMC5:1808282334,
+@@ -107,6 +110,7 @@ newVersionToMeshFileVersion = {
+ 	VERSION_MHS3:250604100,
+ 	#VERSION_PRAGDEMO:250925211,
+ 	VERSION_RE9:250925211,
++	VERSION_OWOTS:260209350,
+ 	}
+ meshFileVersionToInternalVersionDict = {
+ 	1808282334:386270720,#VERSION_DMC5
+@@ -127,6 +131,7 @@ meshFileVersionToInternalVersionDict = {
+ 	250604100:250203152,#VERSION_MHS3
+ 	#250925211:250707828,#VERSION_PRAGDEMO
+ 	250925211:250904410,#VERSION_RE9
++	260209350:250203152,#VERSION_OWOTS
+ 	}
+ internalVersionToMeshFileVersionDict = {
+ 	386270720:1808282334,#VERSION_DMC5
+@@ -169,6 +174,7 @@ meshFileVersionToGameNameDict = {
+ 	250604100:"MHS3",#VERSION_MHS3
+ 	#250925211:"PRAG",#VERSION_PRAGDEMO
+ 	250925211:"RE9",#VERSION_RE9
++	260209350:"OWOTS",#VERSION_OWOTS
+ 	}
+ 
+ #Used for unmapped mesh versions, potentially allows for importing
+@@ -2016,7 +2022,7 @@ def ParsedREMeshToREMesh(parsedMesh,meshVersion):
+ 			reMesh.lodHeader.skinWeightCount = 9
+ 		elif version == VERSION_MHWILDS:
+ 			reMesh.lodHeader.skinWeightCount = 25#Not sure why but this fixes monsters causing crashes and dead hitbox issues
+-		elif version == VERSION_PRAGDEMO:
++		elif version == VERSION_PRAGDEMO or version == VERSION_OWOTS:
+ 			reMesh.lodHeader.skinWeightCount = 27#
+ 		elif version == VERSION_RE9:
+ 			reMesh.lodHeader.skinWeightCount = 18#
+diff --git a/modules/mesh/re_mesh_parse.py b/modules/mesh/re_mesh_parse.py
+index db5ce0a..0d7bb16 100644
+--- a/modules/mesh/re_mesh_parse.py
++++ b/modules/mesh/re_mesh_parse.py
+@@ -9,12 +9,14 @@ VERSION_MHWILDS = 241111606
+ VERSION_MHS3 = 250604100
+ VERSION_PRAGDEMO = 250925211
+ VERSION_RE9 = 250925211
++VERSION_OWOTS = 260209350
+ 
+ SIX_WEIGHT_MESH_VERSIONS = frozenset([
+ 	VERSION_SF6,
+ 	VERSION_MHWILDS_BETA,
+ 	VERSION_MHWILDS,
+ 	VERSION_MHS3,
++	VERSION_OWOTS,
+ 	#VERSION_PRAGDEMO,
+ 	])
+ 
+@@ -814,4 +816,4 @@ class ParsedREMesh:
+ 					group.subMeshList.append(submesh)
+ 				lod.visconGroupList.append(group)
+ 				self.mainMeshLODList.append(lod)
+-			pass#TODO Parse MPLY
+\ No newline at end of file
++			pass#TODO Parse MPLY
+diff --git a/modules/tex/blender_re_tex.py b/modules/tex/blender_re_tex.py
+index 3710dc2..f95522d 100644
+--- a/modules/tex/blender_re_tex.py
++++ b/modules/tex/blender_re_tex.py
+@@ -118,7 +118,7 @@ def convertTexDDSList (fileNameList,inDir,outDir,gameName,createStreamingTex = F
+ 		for ddsPath in ddsConversionList:
+ 			texPath = os.path.join(outDir,os.path.splitext(os.path.split(ddsPath)[1])[0])+f".tex.{str(texVersion)}"
+ 			print(str(texPath))
+-			DDSToTex([ddsPath],texVersion,texPath,streamingFlag = False)#TODO Streaming
++			DDSToTex([ddsPath],texVersion,texPath,streamingFlag = False, compressOverride = False if gameName == "OWOTS" else None)#TODO Streaming
+ 			conversionCount += 1
+ 		
+ 		
+@@ -128,7 +128,7 @@ def convertTexDDSList (fileNameList,inDir,outDir,gameName,createStreamingTex = F
+ 			#print(key)
+ 			#print(ddsPathList)
+ 			texPath = os.path.join(outDir,key+f".tex.{str(texVersion)}")
+-			DDSToTex(ddsPathList,texVersion,texPath,streamingFlag = False)#TODO Streaming
++			DDSToTex(ddsPathList,texVersion,texPath,streamingFlag = False, compressOverride = False if gameName == "OWOTS" else None)#TODO Streaming
+ 			conversionCount += 1
+ 	
+ 	ddsToPNGConversionList = []
+diff --git a/modules/tex/enums/game_version_enum.py b/modules/tex/enums/game_version_enum.py
+index c778273..71e5bc4 100644
+--- a/modules/tex/enums/game_version_enum.py
++++ b/modules/tex/enums/game_version_enum.py
+@@ -18,7 +18,8 @@ gameNameToTexVersionDict = {
+ 	"DR":240606151,
+ 	"MHWILDS":241106027,
+ 	"ONI2":240701001,
++	"OWOTS":251111100,
+ 	"MHS3":251111100,
+ 	"PRAG":250813143,
+ 	"RE9":250813143,
+-	}
+\ No newline at end of file
++	}
+diff --git a/modules/tex/file_re_tex.py b/modules/tex/file_re_tex.py
+index 19499d6..96a4435 100644
+--- a/modules/tex/file_re_tex.py
++++ b/modules/tex/file_re_tex.py
+@@ -21,6 +21,8 @@ GDEFLATE_VERSIONS = set([
+ 	251111100,#VERSION_MHS3
+ 	])
+ 
++ONIMUSHA_TEX_VERSION = 251111100
++
+ VERSION_MHWILDS_BETA = 240701001
+ VERSION_MHWILDS = 241106027
+ 
+@@ -305,9 +307,43 @@ class Tex():
+         self.imageMipDataList = []
+         self.imageHeaderList = []  # WILDS
+ 
++    @staticmethod
++    def _hasValidGDeflateHeaders(file, mipCount, imageCount):
++        """Distinguish Onimusha's uncompressed v251111100 from MHS3 GDeflate."""
++        count = mipCount * imageCount
++        headerPos = file.tell()
++        try:
++            file.seek(headerPos)
++            firstMipOffset = read_uint64(file)
++            file.seek(firstMipOffset)
++            compressedHeaders = [(read_uint(file), read_uint(file)) for _ in range(count)]
++            file.seek(0, 2)
++            fileSize = file.tell()
++            if not compressedHeaders or compressedHeaders[0][1] != 0:
++                return False
++            dataStart = firstMipOffset + count * 8
++            previousOffset = -1
++            for index, (size, offset) in enumerate(compressedHeaders):
++                if size <= 0 or offset < 0 or dataStart + offset + size > fileSize:
++                    return False
++                if index > 0 and offset == 0:
++                    return False
++                if offset < previousOffset:
++                    return False
++                previousOffset = offset
++            return True
++        except Exception:
++            return False
++        finally:
++            file.seek(headerPos)
++
+     def read(self, file):
+         self.header.read(file)
+         self.imageMipDataList = []
++        isGDeflate = self.header.version in GDEFLATE_VERSIONS
++        if self.header.version == ONIMUSHA_TEX_VERSION:
++            isGDeflate = self._hasValidGDeflateHeaders(
++                file, self.header.mipCount, self.header.imageCount)
+         fmtData = self.header.formatData
+         currentOverallMipIndex = 0
+         currentImageDataHeaderOffset = file.tell() + \
+@@ -328,7 +364,7 @@ class Tex():
+                 expectedMipSize = tmath.ruD(mipY,fmtData.ty) * mipZ * fmtData.bytelen
+                 mipEntry.read(file, expectedMipSize, (mipX, mipY, mipZ),
+                               fmtData, currentImageDataHeaderOffset,
+-                              imageDataOffset, self.header.version)
++                              imageDataOffset, self.header.version if isGDeflate else 0)
+                 imageMipDataListEntry.append(mipEntry)
+                 currentImageDataHeaderOffset += 8  # 8 is image data header size
+             self.imageMipDataList.append(imageMipDataListEntry)
+diff --git a/modules/tex/re_tex_utils.py b/modules/tex/re_tex_utils.py
+index 06faee7..1cee8b2 100644
+--- a/modules/tex/re_tex_utils.py
++++ b/modules/tex/re_tex_utils.py
+@@ -204,21 +204,21 @@ def storeTextures(ddsHeader, texFile, miptex, compress):
+     return texFile
+ 
+ 
+-def getTexFileFromDDS(ddsList, texVersion, streamingFlag=False):
++def getTexFileFromDDS(ddsList, texVersion, streamingFlag=False, compressOverride=None):
+     ddsHeader = ddsList[0].header
+-    isGDeflate = texVersion in GDEFLATE_VERSIONS
++    isGDeflate = texVersion in GDEFLATE_VERSIONS if compressOverride is None else compressOverride
+     newTexFile = makeTexHeader(texVersion, ddsHeader, len(ddsList))
+     formatData = format_ops.packetSizeData(newTexFile.tex.header.formatString)
+     miptex = packageTextures(ddsHeader, ddsList, isGDeflate, formatData)
+     return storeTextures(ddsHeader, newTexFile, miptex, isGDeflate)
+ 
+ 
+-def DDSToTex(ddsPathList, texVersion, outPath, streamingFlag=False):
++def DDSToTex(ddsPathList, texVersion, outPath, streamingFlag=False, compressOverride=None):
+ 
+     if len(ddsPathList) == 1:
+         ddsFile = DDSFile()
+         ddsFile.read(ddsPathList[0])
+-        texFile = getTexFileFromDDS([ddsFile.dds], texVersion, streamingFlag)
++        texFile = getTexFileFromDDS([ddsFile.dds], texVersion, streamingFlag, compressOverride)
+         texFile.write(outPath)
+     else:  # Array texture
+         baseHeader = getDDSHeader(ddsPathList[0])
+@@ -267,7 +267,7 @@ def DDSToTex(ddsPathList, texVersion, outPath, streamingFlag=False):
+                 ddsFile.read(ddsPath)
+                 ddsList.append(ddsFile.dds)
+ 
+-            texFile = getTexFileFromDDS(ddsList, texVersion, streamingFlag)
++            texFile = getTexFileFromDDS(ddsList, texVersion, streamingFlag, compressOverride)
+             texFile.write(outPath)
+ 
+ def ImageListToDDS(imageConvertList,outDir,generateMipMaps):
+@@ -285,4 +285,4 @@ def ImageListToDDS(imageConvertList,outDir,generateMipMaps):
+ 	        )
+         except Exception as err:
+             print(f"Failed to convert {inPath} - {err}")
+-    unload_texconv()
+\ No newline at end of file
++    unload_texconv()

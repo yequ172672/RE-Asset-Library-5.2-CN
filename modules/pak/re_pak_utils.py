@@ -14,7 +14,7 @@ timeFormat = "%d"
 
 from ..gen_functions import progressBar,formatByteSize,read_ubyte,read_ushort,read_uint,read_uint64,write_ubyte,write_ushort,write_uint,write_uint64
 
-from .file_re_pak import ReadPakTOC,PakFile,PakTOCEntry,writePak
+from .file_re_pak import ReadPakTOC,ReadPakChunkTable,PakFile,PakTOCEntry,writePak
 from ..hashing.mmh3.pymmh3 import hashUTF16#TODO Replace with pypi mmh3 library, orders of magnitude faster
 from ..hashing.mmh3.fastmmh3 import FastMMH3
 from ..encryption.re_pak_encryption import decryptResource
@@ -23,6 +23,9 @@ from ..rszmini.re_rsz_utils import getRSZResourcePaths
 from ..mdf.file_re_mdf import MDFFile
 
 STREAMING_FILE_TYPE_SET = frozenset([".mesh",".abcmesh",".stmesh",".tex",".sbnk",".bnk",".pck",".spck",".vsrc",".mov",".mpci"])
+
+def isStreamingFilePath(filePath):
+	return os.path.splitext(os.path.splitext(filePath)[0])[1].lower() in STREAMING_FILE_TYPE_SET
 
 def getPakFileTypeCategoryDict():
 	FILE_TYPE_CATEGORY_DICT = {
@@ -144,7 +147,95 @@ def scanForPakFiles(gameDir):
 	
 	
 	return pakPriorityList
-PAK_CACHE_VERSION = 2
+PAK_CACHE_VERSION = 3
+PAK_CACHE_ENTRY_STRUCT = struct.Struct("<QQQQBBBH")
+
+def _getPakEntryValue(entry,key,default = 0):
+	if isinstance(entry,dict):
+		return entry.get(key,default)
+	return getattr(entry,key,default)
+
+def _getPakEntryOffsetType(entry):
+	offsetType = _getPakEntryValue(entry,"offsetType",None)
+	if offsetType is None:
+		# Cache entries created before the explicit field used the top byte of
+		# attributes for this information.
+		offsetType = (_getPakEntryValue(entry,"attributes",0) >> 24) & 0x0F
+	return offsetType
+
+def _readPakChunkTable(pakPath):
+	chunkTable = ReadPakChunkTable(pakPath)
+	if chunkTable is None:
+		raise Exception(f"PAK has no chunk content table: {pakPath}")
+	return chunkTable
+
+def readPakEntryData(entry,pakStream,chunkTable = None,decompressorZSTD = None):
+	"""Read one PAK entry, including v4.2 chunk content table entries."""
+	compressionType = _getPakEntryValue(entry,"compressionType",0)
+	encryptionType = _getPakEntryValue(entry,"encryptionType",0)
+	offset = _getPakEntryValue(entry,"offset",0)
+	compressedSize = _getPakEntryValue(entry,"compressedSize",0)
+	decompressedSize = _getPakEntryValue(entry,"decompressedSize",0)
+	offsetType = _getPakEntryOffsetType(entry)
+	if offsetType not in (0,1):
+		raise Exception(f"Unsupported PAK content table type: {offsetType}")
+	if compressionType not in (CompressionTypes.COMPRESSION_TYPE_NONE, CompressionTypes.COMPRESSION_TYPE_DEFLATE, CompressionTypes.COMPRESSION_TYPE_ZSTD):
+		raise Exception(f"Unsupported PAK compression type: {compressionType}")
+
+	if offsetType == 1:
+		if chunkTable is None:
+			raise Exception("PAK chunk entry requires a chunk content table")
+		if compressionType != CompressionTypes.COMPRESSION_TYPE_NONE or encryptionType != 0:
+			raise Exception("Compressed or encrypted chunk-table entries are unsupported")
+		remainingSize = int(compressedSize)
+		chunkIndex = int(offset)
+		fileData = bytearray()
+		if decompressorZSTD is None:
+			decompressorZSTD = zstd.ZstdDecompressor()
+		while remainingSize > 0:
+			if chunkIndex < 0 or chunkIndex >= len(chunkTable.entryList):
+				raise Exception(f"PAK chunk index is out of range: {chunkIndex}")
+			chunk = chunkTable.entryList[chunkIndex]
+			chunkSize = int(chunk.compressedSize)
+			if chunkSize <= 0:
+				raise Exception(f"Invalid PAK chunk size at index {chunkIndex}")
+			if chunkSize > remainingSize:
+				raise Exception(f"PAK chunk size exceeds entry size at index {chunkIndex}")
+			pakStream.seek(chunk.fileOffset)
+			chunkData = pakStream.read(chunkSize)
+			if len(chunkData) != chunkSize:
+				raise Exception(f"PAK chunk is truncated at index {chunkIndex}")
+			if chunkSize == chunkTable.blockSize:
+				fileData.extend(chunkData)
+			else:
+				fileData.extend(decompressorZSTD.decompress(chunkData))
+			remainingSize -= chunkSize
+			chunkIndex += 1
+		if remainingSize != 0:
+			raise Exception("PAK chunk table does not cover the entry")
+		# ZSTD frames in the chunk table are padded to the block size.  The
+		# entry's decompressed size removes that padding from the final block.
+		if len(fileData) < int(decompressedSize):
+			raise Exception("PAK chunk data is shorter than the entry decompressed size")
+		return bytes(fileData[:int(decompressedSize)])
+
+	readSize = int(compressedSize if compressedSize != 0 else decompressedSize)
+	pakStream.seek(offset)
+	fileData = pakStream.read(readSize)
+	if len(fileData) != readSize:
+		raise Exception("PAK entry is truncated")
+	if encryptionType > 0:
+		fileData = decryptResource(fileData)
+	if decompressorZSTD is None:
+		decompressorZSTD = zstd.ZstdDecompressor()
+	match compressionType:
+		case CompressionTypes.COMPRESSION_TYPE_DEFLATE:
+			fileData = zlib.decompress(fileData,wbits=-zlib.MAX_WBITS)
+		case CompressionTypes.COMPRESSION_TYPE_ZSTD:
+			fileData = decompressorZSTD.decompress(fileData)
+	if decompressedSize > 0 and len(fileData) != int(decompressedSize):
+		raise Exception(f"PAK entry decompressed size mismatch: expected {decompressedSize}, got {len(fileData)}")
+	return fileData
 
 def writeExtractInfo(extractInfoDict,outPath):#Used to determine if the game has been updated and paks need to be rescanned
 	with open(outPath,"w") as outputFile:
@@ -184,6 +275,25 @@ def findPakMDFPathFromMeshPath(meshPath,lookupDict,mdfVersion,gameName = None):
 	if not lookupHash in lookupDict and fileRoot.endswith("_f"):
 		
 		mdfPath = f"{fileRoot[:-1] + 'm'}.mdf2.{mdfVersion}"#DD2 female armor uses male mdf, so replace _f with _m
+
+	if not lookupHash in lookupDict and gameName == "OWOTS":
+		# Way of the Sword uses suffixes such as _c/_b for character
+		# variants and _st/_tr/_pdo for VFX materials.
+		# The pak cache is hash-only, so only a single matching suffix is
+		# safe; ambiguous groups are left to explicit material selection.
+		candidates = []
+		for suffix in ("_c", "_b", "_g", "_o", "_o1", "_o2", "_o3", "_st", "_001_st", "_002_st", "_003_st", "_stvat", "_pdo", "_pom_st", "_st_sse", "_tr", "_twoside_tr"):
+			candidate = f"{fileRoot}{suffix}.mdf2.{mdfVersion}"
+			candidateHash = pathToPakHash(candidate)
+			if candidateHash in lookupDict:
+				candidates.append((candidate, candidateHash))
+		if len(candidates) == 1:
+			mdfPath, lookupHash = candidates[0]
+		elif len(candidates) > 1:
+			# Do not choose an arbitrary material when a mesh has multiple
+			# suffix variants. Let the caller expose explicit MDF selection.
+			mdfPath = None
+			lookupHash = 0
 	
 	if not lookupHash in lookupDict and os.path.split(fileRoot)[1].startswith("SM_"):
 		split = os.path.split(fileRoot)
@@ -257,8 +367,10 @@ def createPakCacheFile(pakPriorityList,outPath):
 				lookupDict[lookupHash] = {
 					"offset":entry.offset,
 					"compressedSize":entry.compressedSize,
+					"decompressedSize":entry.decompressedSize,
 					"compressionType":entry.compressionType,
 					"encryptionType":entry.encryptionType,
+					"offsetType":entry.offsetType,
 					"pakIndex":index,
 					}
 	
@@ -277,8 +389,10 @@ def createPakCacheFile(pakPriorityList,outPath):
 			write_uint64(outFile,key)
 			write_uint64(outFile,value["offset"])
 			write_uint64(outFile,value["compressedSize"])
+			write_uint64(outFile,value["decompressedSize"])
 			write_ubyte(outFile,value["compressionType"])
 			write_ubyte(outFile,value["encryptionType"])
+			write_ubyte(outFile,value["offsetType"])
 			write_ushort(outFile,value["pakIndex"])
 		print(f"Saved {len(lookupDict)} entries.")
 	print(f"Saved pak cache to {outPath}")
@@ -289,8 +403,8 @@ def readPakCache(pakCachePath):
 	importTimeStart = time.time()
 	with open(pakCachePath,"rb") as file:
 		version = read_uint(file)
-		if version > PAK_CACHE_VERSION:
-			raise Exception("Pak cache was generated in a newer version, an update is required")
+		if version != PAK_CACHE_VERSION:
+			raise Exception("Pak cache format is outdated, regenerate the cache")
 		
 		entryCount = read_uint(file)
 		#print(entryCount)
@@ -307,29 +421,18 @@ def readPakCache(pakCachePath):
 		#print(file.tell())
 		#print("entry Offset")
 		
-		#Old version
-		"""
-		for _ in range(0,entryCount):
-			#print(file.tell())
-			lookupHash = read_uint64(file)
-			lookupDict[lookupHash] = {
-				"offset":read_uint64(file),
-				"compressedSize":read_uint64(file),
-				"compressionType":read_ubyte(file),
-				"encryptionType":read_ubyte(file),
-				"pakIndex":read_ushort(file),
-				}
-		"""
-		#About 4x faster
-		entryStruct = struct.Struct("<QQQBBH")
+		# About 4x faster than unpacking one record at a time.
+		entryStruct = PAK_CACHE_ENTRY_STRUCT
 		lookupDict = {
 		    lookupHash: {
 		        "offset": offset,
 		        "compressedSize": compressedSize,
+		        "decompressedSize": decompressedSize,
 		        "compressionType": compressionType,
 		        "encryptionType": encryptionType,
+		        "offsetType": offsetType,
 		        "pakIndex": pakIndex,
-		    } for lookupHash, offset, compressedSize, compressionType, encryptionType, pakIndex in entryStruct.iter_unpack(file.read())
+		    } for lookupHash, offset, compressedSize, decompressedSize, compressionType, encryptionType, offsetType, pakIndex in entryStruct.iter_unpack(file.read(entryCount * entryStruct.size))
 		}
 		importTimeEnd = time.time()
 		importTime =  importTimeEnd - importTimeStart
@@ -337,7 +440,13 @@ def readPakCache(pakCachePath):
 		print(f"Pak cache loaded in {timeFormat%(importTime * 1000)} ms.")
 		return pakPathList,lookupDict
 def getStreamingPath(filePath,platform,lookupDict):
-	streamingPath = filePath.replace(f"natives/{platform}/",f"natives/{platform}/streaming/")
+	prefix = f"natives/{platform}/"
+	if not filePath.lower().startswith(prefix.lower()):
+		return None
+	# PAK hashes are case-insensitive, but callers may pass list paths with
+	# either `stm` or `STM`. Preserve the caller's casing while inserting the
+	# streaming segment so disk extraction and lookup use the same path form.
+	streamingPath = filePath[:len(prefix)] + "streaming/" + filePath[len(prefix):]
 	lookupHash = pathToPakHash(streamingPath)
 	if lookupHash not in lookupDict:
 		streamingPath = None
@@ -422,7 +531,7 @@ def extractFilesFromPakCache(gameInfoPath,filePathList,extractInfoPath,pakCacheP
 			print(f"Blender Asset Path: {buildNativesPathFromObj(blenderAssetObj,gameInfo,platform)}")
 			if blenderAssetObj.get("assetType") == "MESH":
 				#Find related MDF path by generating alternate MDF names and checking it's hash
-				mdfPath = findPakMDFPathFromMeshPath(filePathList[-1], lookupDict, gameInfo["fileVersionDict"].get("MDF2_VERSION",999))
+				mdfPath = findPakMDFPathFromMeshPath(filePathList[-1], lookupDict, gameInfo["fileVersionDict"].get("MDF2_VERSION",999), gameInfo.get("GameName"))
 				if mdfPath != None and mdfPath not in adjacentFilesSet:
 					#print(f"Detected MDF path: {mdfPath}")
 					filePathList.append(mdfPath)
@@ -441,7 +550,7 @@ def extractFilesFromPakCache(gameInfoPath,filePathList,extractInfoPath,pakCacheP
 				#print(f"{os.path.split(filePath)[1]} found in {os.path.split(pakPathList[pakIndex])[1]}")
 				
 				#Check for streaming path if applicable
-				if os.path.splitext(os.path.splitext(filePath)[0])[1] in STREAMING_FILE_TYPE_SET:
+				if isStreamingFilePath(filePath):
 					streamingPath = getStreamingPath(filePath,platform,lookupDict)
 					if streamingPath != None:
 						#print("Found streamed path")
@@ -478,7 +587,7 @@ def extractFilesFromPakCache(gameInfoPath,filePathList,extractInfoPath,pakCacheP
 					#print(f"{os.path.split(filePath)[1]} found in {os.path.split(pakPathList[pakIndex])[1]}")
 					
 					#Check for streaming path if applicable
-					if os.path.splitext(os.path.splitext(filePath)[0])[1] in STREAMING_FILE_TYPE_SET:
+					if isStreamingFilePath(filePath):
 						streamingPath = getStreamingPath(filePath,platform,lookupDict)
 						if streamingPath != None:
 							lookupHash = pathToPakHashFast(fastMMH3Hasher,streamingPath)
@@ -504,6 +613,9 @@ def extractFilesFromPakCache(gameInfoPath,filePathList,extractInfoPath,pakCacheP
 def extractPakFromFileInfo(fileInfoList,pakPath,outDir,extractDependencies = True):
 	
 	decompressorZSTD = zstd.ZstdDecompressor()
+	chunkTable = None
+	if any(_getPakEntryOffsetType(entry) == 1 for entry in fileInfoList):
+		chunkTable = _readPakChunkTable(pakPath)
 	#decompressorDeflate = zlib.decompressobj(wbits=-zlib.MAX_WBITS)
 	dependencySet = set()
 	if os.path.isfile(pakPath):
@@ -511,22 +623,7 @@ def extractPakFromFileInfo(fileInfoList,pakPath,outDir,extractDependencies = Tru
 			#for entry in progressBar(fileInfoList, prefix = 'Progress:', suffix = 'Complete', length = 50):
 			for entry in fileInfoList:
 				filePath = entry["filePath"]
-				#print(f"Hash: {entry.hashNameLower}-{entry.hashNameUpper}\nCompression Type: {entry.compressionType}\nEncryption Type: {entry.encryptionType}\n")
-				pakStream.seek(entry["offset"])
-				fileData = pakStream.read(entry["compressedSize"])
-				
-				if entry["encryptionType"] > 0:
-					#print(f"Encrypted file ({entry.encryptionType}):{filePath}]")
-					fileData = decryptResource(fileData)
-				
-				match entry["compressionType"]:
-					case CompressionTypes.COMPRESSION_TYPE_DEFLATE:
-						#print("Deflate Compression")
-						#fileData = decompressorDeflate.decompress(fileData)
-						fileData = zlib.decompress(fileData,wbits=-zlib.MAX_WBITS)
-					case CompressionTypes.COMPRESSION_TYPE_ZSTD:
-						#print("ZSTD Compression")
-						fileData = decompressorZSTD.decompress(fileData)
+				fileData = readPakEntryData(entry,pakStream,chunkTable,decompressorZSTD)
 				
 				
 				
@@ -566,6 +663,7 @@ def extractFileList(filePathList,pakPath,outDir):
 	
 	if os.path.isfile(pakPath):
 		lookupDict = getPakLookupTable(pakPath)
+		chunkTable = _readPakChunkTable(pakPath) if any(_getPakEntryOffsetType(entry) == 1 for entry in lookupDict.values()) else None
 		print("Extracting files...")
 		with open(pakPath,"rb") as pakStream:
 			for filePath in progressBar(filePathList, prefix = 'Progress:', suffix = 'Complete', length = 50):
@@ -573,22 +671,7 @@ def extractFileList(filePathList,pakPath,outDir):
 				if lookupHash in lookupDict:
 					entry = lookupDict[lookupHash]
 					#print(f"Hash: {entry.hashNameLower}-{entry.hashNameUpper}\nCompression Type: {entry.compressionType}\nEncryption Type: {entry.encryptionType}\n")
-					pakStream.seek(entry.offset)
-					size = entry.compressedSize if entry.compressedSize != 0 else entry.uncompressedSize
-					fileData = pakStream.read(size)
-					
-					if entry.encryptionType > 0:
-						#print(f"Encrypted file ({entry.encryptionType}):{filePath}]")
-						fileData = decryptResource(fileData)
-					
-					match entry.compressionType:
-						case CompressionTypes.COMPRESSION_TYPE_DEFLATE:
-							#print("Deflate Compression")
-							#fileData = decompressorDeflate.decompress(fileData)
-							fileData = zlib.decompress(fileData,wbits=-zlib.MAX_WBITS)
-						case CompressionTypes.COMPRESSION_TYPE_ZSTD:
-							#print("ZSTD Compression")
-							fileData = decompressorZSTD.decompress(fileData)
+					fileData = readPakEntryData(entry,pakStream,chunkTable,decompressorZSTD)
 					
 					outPath = os.path.join(outDir,filePath.replace("/",os.sep))
 					os.makedirs(os.path.split(outPath)[0],exist_ok=True)
@@ -637,6 +720,9 @@ class PakCacheStream:#Opens a stream to all pak files for fetching file data dir
 			modifiedTime = os.path.getmtime(exePath)
 			lastModifiedTime = extractInfo["exeDate"]
 			
+			if os.path.isfile(pakCachePath) and checkOutdatedPakCacheVersion(pakCachePath):
+				print("Removing outdated pak cache.")
+				os.remove(pakCachePath)
 			if not os.path.isfile(pakCachePath):
 				pakPriorityList = scanForPakFiles(os.path.split(exePath)[0])
 				if len(pakPriorityList) != 0:
@@ -663,6 +749,7 @@ class PakCacheStream:#Opens a stream to all pak files for fetching file data dir
 						raise Exception("No pak files were found in game directory. Cannot continue.")
 			
 			self.pakPathList,self.lookupDict = readPakCache(pakCachePath)
+			self.pakChunkTableList = [None for _ in self.pakPathList]
 			for pakPath in self.pakPathList:
 				self.pakStreamList.append(open(pakPath,"rb"))
 		
@@ -675,21 +762,9 @@ class PakCacheStream:#Opens a stream to all pak files for fetching file data dir
 			fileInfo = self.lookupDict[lookupHash]
 			pakIndex = fileInfo["pakIndex"]
 			pakStream = self.pakStreamList[pakIndex]
-			pakStream.seek(fileInfo["offset"])
-			fileData = pakStream.read(fileInfo["compressedSize"])
-			
-			if fileInfo["encryptionType"] > 0:
-				#print(f"Encrypted file ({fileInfo.encryptionType}):{filePath}]")
-				fileData = decryptResource(fileData)
-			
-			match fileInfo["compressionType"]:
-				case CompressionTypes.COMPRESSION_TYPE_DEFLATE:
-					#print("Deflate Compression")
-					#fileData = decompressorDeflate.decompress(fileData)
-					fileData = zlib.decompress(fileData,wbits=-zlib.MAX_WBITS)
-				case CompressionTypes.COMPRESSION_TYPE_ZSTD:
-					#print("ZSTD Compression")
-					fileData = self.decompressorZSTD.decompress(fileData)
+			if _getPakEntryOffsetType(fileInfo) == 1 and self.pakChunkTableList[pakIndex] is None:
+				self.pakChunkTableList[pakIndex] = _readPakChunkTable(self.pakPathList[pakIndex])
+			fileData = readPakEntryData(fileInfo,pakStream,self.pakChunkTableList[pakIndex],self.decompressorZSTD)
 			#print(f"Returned {len(fileData)} bytes")
 			return fileData
 			
@@ -697,6 +772,8 @@ class PakCacheStream:#Opens a stream to all pak files for fetching file data dir
 	def closeStreams(self):
 		for stream in self.pakStreamList:
 			stream.close()
+		self.pakStreamList = []
+		self.pakChunkTableList = []
 #Generator function that iterates over all files in all paks, used for pulling strings from files
 def debugDataIterator(pakPathList):
 	extractCount = 0
@@ -711,28 +788,14 @@ def debugDataIterator(pakPathList):
 		
 		if os.path.isfile(pakPath):
 			pakTOC = ReadPakTOC(pakPath)
+			chunkTable = _readPakChunkTable(pakPath) if any(_getPakEntryOffsetType(entry) == 1 for entry in pakTOC) else None
 			
 			with open(pakPath,"rb") as pakStream:
 				for entry in progressBar(pakTOC, prefix = 'Progress:', suffix = 'Complete', length = 50):
 					
 					#print(f"Hash: {entry.hashNameLower}-{entry.hashNameUpper}\nCompression Type: {entry.compressionType}\nEncryption Type: {entry.encryptionType}\n")
-					pakStream.seek(entry.offset)
-					#print(entry.__dict__)
-					fileData = pakStream.read(entry.compressedSize)
+					fileData = readPakEntryData(entry,pakStream,chunkTable,decompressorZSTD)
 					
-					if entry.encryptionType > 0:
-						#print(f"Encrypted file ({entry.encryptionType}):{filePath}]")
-						fileData = decryptResource(fileData)
-					
-					match entry.compressionType:
-						case CompressionTypes.COMPRESSION_TYPE_DEFLATE:
-							#print("Deflate Compression")
-							#fileData = decompressorDeflate.decompress(fileData)
-							fileData = zlib.decompress(fileData,wbits=-zlib.MAX_WBITS)
-	
-						case CompressionTypes.COMPRESSION_TYPE_ZSTD:
-							#print("ZSTD Compression")
-							fileData = decompressorZSTD.decompress(fileData)
 					
 					yield fileData
 					extractCount += 1
@@ -761,6 +824,7 @@ def extractAll(filePathList,pakPath,outDir):
 	print(f"Hashing file paths took {timeFormat%(hashTime * 1000)} ms.")
 	if os.path.isfile(pakPath):
 		pakTOC = ReadPakTOC(pakPath)
+		chunkTable = _readPakChunkTable(pakPath) if any(_getPakEntryOffsetType(entry) == 1 for entry in pakTOC) else None
 		
 		print("Extracting all files...")
 		extractStartTime = time.time()
@@ -774,24 +838,7 @@ def extractAll(filePathList,pakPath,outDir):
 				else:
 					filePath = os.path.join("UNKNOWN",f"{lookupHash}.bin")
 				#print(f"Hash: {entry.hashNameLower}-{entry.hashNameUpper}\nCompression Type: {entry.compressionType}\nEncryption Type: {entry.encryptionType}\n")
-				pakStream.seek(entry.offset)
-				size = entry.compressedSize if entry.compressedSize != 0 else entry.uncompressedSize
-				#print(entry.__dict__)
-				fileData = pakStream.read(size)
-				
-				if entry.encryptionType > 0:
-					#print(f"Encrypted file ({entry.encryptionType}):{filePath}]")
-					fileData = decryptResource(fileData)
-				
-				match entry.compressionType:
-					case CompressionTypes.COMPRESSION_TYPE_DEFLATE:
-						#print("Deflate Compression")
-						#fileData = decompressorDeflate.decompress(fileData)
-						fileData = zlib.decompress(fileData,wbits=-zlib.MAX_WBITS)
-
-					case CompressionTypes.COMPRESSION_TYPE_ZSTD:
-						#print("ZSTD Compression")
-						fileData = decompressorZSTD.decompress(fileData)
+				fileData = readPakEntryData(entry,pakStream,chunkTable,decompressorZSTD)
 				
 				outPath = os.path.join(outDir,filePath)
 				os.makedirs(os.path.split(outPath)[0],exist_ok=True)
@@ -868,8 +915,10 @@ def extractPakMP(filePathList,pakPathList,outDir,maxThreads = cpu_count()-1,skip
 					
 					"offset": entry.offset,
 					"compressedSize": entry.compressedSize,
+					"decompressedSize": entry.decompressedSize,
 					"encryptionType": entry.encryptionType,
 					"compressionType": entry.compressionType,
+					"offsetType": entry.offsetType,
 					"filePath": filePath.replace("\\",os.sep)
 					}
 					totalSize += entry.decompressedSize
@@ -1238,7 +1287,7 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 		nativesPath = buildNativesPathFromCatalogEntry(row, gameInfo["fileVersionDict"].get(f"{os.path.splitext(row[0])[1][1::].upper()}_VERSION","999"), platform)
 		filePathList.append(nativesPath)
 		#print(os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET)
-		if os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET:
+		if os.path.splitext(row[0])[1].lower() in STREAMING_FILE_TYPE_SET:
 			#No need to verify if the path exists, that will be done when they're hashed
 			streamingPath = nativesPath.replace(f"natives/{platform}/",f"natives/{platform}/streaming/")
 			#print(streamingPath)
@@ -1284,6 +1333,7 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 			raise Exception("Invalid loose files directory.")
 	if os.path.isfile(pakPath):
 		lookupDict = getPakLookupTable(pakPath)
+		chunkTable = _readPakChunkTable(pakPath) if any(_getPakEntryOffsetType(entry) == 1 for entry in lookupDict.values()) else None
 		reverseLookupDict = dict()
 		fastMMH3Hasher = FastMMH3()
 		
@@ -1298,22 +1348,8 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 			with open(pakPath,"rb") as pakStream:
 				reverseLookupDict[lookupHash] = manifestPath
 				entry = lookupDict[lookupHash]
-				pakStream.seek(entry.offset)
-				size = entry.compressedSize if entry.compressedSize != 0 else entry.uncompressedSize
-				fileData = pakStream.read(size)
+				fileData = readPakEntryData(entry,pakStream,chunkTable,decompressorZSTD)
 				
-				if entry.encryptionType > 0:
-					#print(f"Encrypted file ({entry.encryptionType}):{filePath}]")
-					fileData = decryptResource(fileData)
-				
-				match entry.compressionType:
-					case CompressionTypes.COMPRESSION_TYPE_DEFLATE:
-						#print("Deflate Compression")
-						#fileData = decompressorDeflate.decompress(fileData)
-						fileData = zlib.decompress(fileData,wbits=-zlib.MAX_WBITS)
-					case CompressionTypes.COMPRESSION_TYPE_ZSTD:
-						#print("ZSTD Compression")
-						fileData = decompressorZSTD.decompress(fileData)
 				
 				
 				with BytesIO(fileData) as tempStream:
@@ -1359,22 +1395,8 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 				entry = lookupDict[lookupHash]
 				filePath = reverseLookupDict.get(lookupHash,None)
 				#print(f"Hash: {entry.hashNameLower}-{entry.hashNameUpper}\nCompression Type: {entry.compressionType}\nEncryption Type: {entry.encryptionType}\n")
-				pakStream.seek(entry.offset)
-				size = entry.compressedSize if entry.compressedSize != 0 else entry.uncompressedSize
-				fileData = pakStream.read(size)
+				fileData = readPakEntryData(entry,pakStream,chunkTable,decompressorZSTD)
 				
-				if entry.encryptionType > 0:
-					#print(f"Encrypted file ({entry.encryptionType}):{filePath}]")
-					fileData = decryptResource(fileData)
-				
-				match entry.compressionType:
-					case CompressionTypes.COMPRESSION_TYPE_DEFLATE:
-						#print("Deflate Compression")
-						#fileData = decompressorDeflate.decompress(fileData)
-						fileData = zlib.decompress(fileData,wbits=-zlib.MAX_WBITS)
-					case CompressionTypes.COMPRESSION_TYPE_ZSTD:
-						#print("ZSTD Compression")
-						fileData = decompressorZSTD.decompress(fileData)
 				
 				
 				with BytesIO(fileData) as tempStream:
@@ -1432,8 +1454,8 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 					if lookupHash in skippedHashSet:
 						reverseLookupDict[lookupHash] = nativesPath
 						newPathSet.add(nativesPath)
-						if os.path.splitext(nativesPath)[1] in STREAMING_FILE_TYPE_SET:
-							streamingPath = getStreamingPath(filePath,platform,lookupDict)
+						if isStreamingFilePath(nativesPath):
+							streamingPath = getStreamingPath(nativesPath,platform,lookupDict)
 							if streamingPath != None:
 								#print("Found streamed path")
 								lookupHash = pathToPakHashFast(fastMMH3Hasher,streamingPath)
@@ -1456,22 +1478,8 @@ def extractModPak(libDir,gameName,pakPath,outDir,looseFileDir = ""):
 						entry = lookupDict[lookupHash]
 						filePath = reverseLookupDict.get(lookupHash,None)
 						#print(f"Hash: {entry.hashNameLower}-{entry.hashNameUpper}\nCompression Type: {entry.compressionType}\nEncryption Type: {entry.encryptionType}\n")
-						pakStream.seek(entry.offset)
-						size = entry.compressedSize if entry.compressedSize != 0 else entry.uncompressedSize
-						fileData = pakStream.read(size)
+						fileData = readPakEntryData(entry,pakStream,chunkTable,decompressorZSTD)
 						
-						if entry.encryptionType > 0:
-							#print(f"Encrypted file ({entry.encryptionType}):{filePath}]")
-							fileData = decryptResource(fileData)
-						
-						match entry.compressionType:
-							case CompressionTypes.COMPRESSION_TYPE_DEFLATE:
-								#print("Deflate Compression")
-								#fileData = decompressorDeflate.decompress(fileData)
-								fileData = zlib.decompress(fileData,wbits=-zlib.MAX_WBITS)
-							case CompressionTypes.COMPRESSION_TYPE_ZSTD:
-								#print("ZSTD Compression")
-								fileData = decompressorZSTD.decompress(fileData)
 						
 						if filePath != None:
 							try:
@@ -1554,7 +1562,7 @@ def getGamePakSize(libDir,gameName):
 		nativesPath = buildNativesPathFromCatalogEntry(row, gameInfo["fileVersionDict"].get(f"{os.path.splitext(row[0])[1][1::].upper()}_VERSION","999"), platform)
 		filePathList.append(nativesPath)
 		#print(os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET)
-		if os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET:
+		if os.path.splitext(row[0])[1].lower() in STREAMING_FILE_TYPE_SET:
 			#No need to verify if the path exists, that will be done when they're hashed
 			streamingPath = nativesPath.replace(f"natives/{platform}/",f"natives/{platform}/streaming/")
 			#print(streamingPath)

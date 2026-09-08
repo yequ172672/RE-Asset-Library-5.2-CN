@@ -416,14 +416,14 @@ class WM_OT_ExtractGameFiles(Operator):
 		
 		fileTypeCategoryDict = getPakFileTypeCategoryDict()
 		for row in [entry for entry in loadREAssetCatalogFile(self.catalogPath)]:
-			fileExt = row[0].split(".",1)[1].split(".")[0]
+			fileExt = row[0].split(".",1)[1].split(".")[0].lower()
 			fileCategory = fileTypeCategoryDict.get(fileExt,"Other Files")
 			if fileCategory in enabledCategorySet:
 				nativesPath = buildNativesPathFromCatalogEntry(row, gameInfo["fileVersionDict"].get(f"{os.path.splitext(row[0])[1][1::].upper()}_VERSION",999), self.platform)
 				
 				filePathList.append(nativesPath)
 				#print(os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET)
-				if os.path.splitext(row[0])[1] in STREAMING_FILE_TYPE_SET:
+				if os.path.splitext(row[0])[1].lower() in STREAMING_FILE_TYPE_SET:
 					#No need to verify if the path exists, that will be done when they're hashed
 					streamingPath = nativesPath.replace(f"natives/{self.platform}/",f"natives/{self.platform}/streaming/")
 					#print(streamingPath)

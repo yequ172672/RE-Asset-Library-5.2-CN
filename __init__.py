@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 25),
+	"version": (0, 25, 1),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -20,6 +20,7 @@ import queue
 import shutil
 import subprocess
 import glob
+import traceback
 
 from .modules.gen_functions import formatByteSize,resolvePath,wildCardFileSearch,openFolder
 from .modules.blender_utils import showErrorMessageBox
@@ -429,6 +430,7 @@ class WM_OT_CreateNewREAssetLibrary(Operator):
 		("KG", "Kunitsu-Gami", ""),
 		("DR", "Dead Rising", ""),
 		("ONI2", "Onimusha 2", ""),
+		("OWOTS", "Onimusha: Way of the Sword", ""),
 		("PRAG", "Pragmata", ""),
 		("MHWILDS", "Monster Hunter Wilds", ""),
 		("MHS3", "Monster Hunter Stories 3", ""),
@@ -634,26 +636,38 @@ def re_asset_open_file_location_button(self, context):
 execution_queue = queue.Queue()
 
 def run_in_main_thread(function):
-    execution_queue.put(function)
+	execution_queue.put(function)
+	if not bpy.app.timers.is_registered(execute_queued_functions):
+		bpy.app.timers.register(execute_queued_functions, first_interval = 0.5)
 
 def execute_queued_functions():
-	#print("Queue Check Ran")
-	while not execution_queue.empty():
-		function = execution_queue.get()
-		function()
-	else:
-		#print("Timer Stop")
-		return None
-	return 0.5
+	while True:
+		try:
+			function = execution_queue.get_nowait()
+		except queue.Empty:
+			return None
+		try:
+			function()
+		except Exception:
+			traceback.print_exc()
 
 def deleteLastREAsset():
 	#print("Delete function run")
 	if bpy.context.scene.get("lastREAsset"):#Object pointer stored in scene
-		objName = bpy.context.scene["lastREAsset"].name
+		asset_obj = bpy.context.scene["lastREAsset"]
 		del bpy.context.scene["lastREAsset"]#Clear reference
-		if objName in bpy.data.objects:
-			bpy.data.objects.remove(bpy.data.objects[objName], do_unlink=True)#Remove asset placement object
+		deleteREAssetObject(asset_obj)
 		#print(bpy.context.scene.get("lastREAsset") +" Deleted")
+
+def deleteREAssetObject(asset_obj):
+	if asset_obj is not None and asset_obj.name in bpy.data.objects:
+		bpy.data.objects.remove(asset_obj, do_unlink=True)
+
+def reportAssetImportError(message):
+	print("RE Asset Library - " + message)
+	if not bpy.app.background:
+		showErrorMessageBox(message)
+
 @persistent
 def REAssetPostHandler(lapp_context):
 	gameInfoPath = None
@@ -673,8 +687,12 @@ def REAssetPostHandler(lapp_context):
 			else:
 				print(f"RE Asset Library - Missing GameInfo:{gameInfoPath}")
 			assetType = item.id.get("assetType","UNKN")
+			asset_obj = item.id
 			
 			promptSetExtractInfo = False
+			pendingImport = None
+			pendingImportDescription = str(item.id.get("assetPath",item.id.name))
+			extractionFailed = False
 			if gameInfo != None:
 				
 				#Find asset path
@@ -702,16 +720,22 @@ def REAssetPostHandler(lapp_context):
 						promptSetExtractInfo = True
 					else:
 						if not promptSetExtractInfo and item.id.get("assetPath"):
-							extractFilesFromPakCache(gameInfoPath,[],extractInfoPath,pakCachePath,extractDependencies = True,blenderAssetObj = item.id)
-							for chunkPath in chunkPathList:
-								newPath = os.path.join(bpy.path.abspath(chunkPath),item.id.get("assetPath","MISSING_ASSET_PATH")+"."+gameInfo["fileVersionDict"].get(f"{assetType}_VERSION","UNKNOWNVERSION")).replace("/",os.sep).replace("\\",os.sep)
-								print(f"Checking for file at: {newPath}")
-								if os.path.isfile(newPath):
-									assetPath = newPath
-									print(f"Found asset path")
-									break	
+							try:
+								extractFilesFromPakCache(gameInfoPath,[],extractInfoPath,pakCachePath,extractDependencies = True,blenderAssetObj = item.id)
+							except Exception as err:
+								reportAssetImportError(f"Failed to extract {item.id.get('assetPath',item.id.name)}: {err}")
+								assetPath = None
+								extractionFailed = True
+							if not extractionFailed:
+								for chunkPath in chunkPathList:
+									newPath = os.path.join(bpy.path.abspath(chunkPath),item.id.get("assetPath","MISSING_ASSET_PATH")+"."+gameInfo["fileVersionDict"].get(f"{assetType}_VERSION","UNKNOWNVERSION")).replace("/",os.sep).replace("\\",os.sep)
+									print(f"Checking for file at: {newPath}")
+									if os.path.isfile(newPath):
+										assetPath = newPath
+										print(f"Found asset path")
+										break
 							if assetPath == None:
-								showErrorMessageBox(item.id.get("assetPath",item.id.name)+" - File not found at any chunk paths. See console for details on how to fix this. (Window > Toggle System Console)")
+								reportAssetImportError(item.id.get("assetPath",item.id.name)+" - File not found at any chunk paths. See console for details on how to fix this. (Window > Toggle System Console)")
 								print("\nIf this issue persists, try the following:")
 								print("1: Check for updates to the asset library addon in Edit > Preferences > Addons > RE Asset Library > Check now for re_asset_library update.")
 								print("2: Uninstall any mods installed with Fluffy Manager and validate game files on Steam.")
@@ -723,31 +747,35 @@ def REAssetPostHandler(lapp_context):
 				if assetPath != None:
 					match assetType:
 						case "MESH":
-							importREMeshAsset(item.id,assetPath,addonPreferences)
+							pendingImport = lambda obj=asset_obj,path=str(assetPath),prefs=addonPreferences: importREMeshAsset(obj,path,prefs)
 						case "CHAIN":
-							importREChainAsset(item.id,assetPath,addonPreferences)
+							pendingImport = lambda obj=asset_obj,path=str(assetPath),prefs=addonPreferences: importREChainAsset(obj,path,prefs)
 						case "CHAIN2":
-							importREChain2Asset(item.id,assetPath,addonPreferences)
+							pendingImport = lambda obj=asset_obj,path=str(assetPath),prefs=addonPreferences: importREChain2Asset(obj,path,prefs)
 						case "FBXSKEL":
-							importREFBXSkelAsset(item.id,assetPath,addonPreferences)
+							pendingImport = lambda obj=asset_obj,path=str(assetPath),prefs=addonPreferences: importREFBXSkelAsset(obj,path,prefs)
 						case "REFSKEL":
-							importREFBXSkelAsset(item.id,assetPath,addonPreferences)
+							pendingImport = lambda obj=asset_obj,path=str(assetPath),prefs=addonPreferences: importREFBXSkelAsset(obj,path,prefs)
 						case "SKELETON":
-							importREFBXSkelAsset(item.id,assetPath,addonPreferences)
+							pendingImport = lambda obj=asset_obj,path=str(assetPath),prefs=addonPreferences: importREFBXSkelAsset(obj,path,prefs)
 						case _:
-							print(f"RE Asset Library - Unsupported Asset Type, cannot import. {item.id.name} - {assetType} ")
-							print("Make sure all RE addons are up to date.")
+							reportAssetImportError(f"Unsupported asset type, cannot import {item.id.name} - {assetType}")
 					
 					
-			bpy.context.scene["lastREAsset"] = item.id
+			bpy.context.scene["lastREAsset"] = asset_obj
+			if pendingImport is not None:
+				def queued_import(import_fn=pendingImport, description=pendingImportDescription):
+					try:
+						if import_fn() is False:
+							reportAssetImportError(f"Import failed for {description}")
+					except Exception as err:
+						reportAssetImportError(f"Import failed for {description}: {err}")
+				run_in_main_thread(queued_import)
 			if promptSetExtractInfo:
-				bpy.ops.re_asset.prompt_extract_info("INVOKE_DEFAULT",libraryPath = bpy.path.abspath(item.source_library.filepath))
-			
-			if not bpy.app.timers.is_registered(execute_queued_functions()):
-				bpy.app.timers.register(execute_queued_functions)
-			
-			#Run every .5 seconds until object is deleted after linking, can't do this in the post handler or blender will complain
-			run_in_main_thread(deleteLastREAsset)
+				library_path = bpy.path.abspath(item.source_library.filepath)
+				run_in_main_thread(lambda path=library_path: bpy.ops.re_asset.prompt_extract_info("INVOKE_DEFAULT",libraryPath = path))
+			# Remove the temporary linked asset after the deferred import/prompt.
+			run_in_main_thread(lambda obj=asset_obj: deleteREAssetObject(obj))
 		
 # Registration
 classes = [

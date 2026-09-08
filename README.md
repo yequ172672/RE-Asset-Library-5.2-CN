@@ -1,4 +1,20 @@
-# End Of Support Notice
+# 本分叉：Onimusha: Way of the Sword / Blender 5.2
+
+本分叉继续维护《鬼武者：Way of the Sword》的资源库适配，游戏标识为 `OWOTS`，与 `ONI2`（鬼武者 2）不同。适配以 Blender 5.2 为验收基线。
+
+- PAK 4.2 分块资源读取、超过 4 GiB 的文件偏移、基础包／补丁／DLC 优先级，以及自动提取缓存。
+- `.mesh.260209350`、鬼武者专用 `.mdf2.51` 材质布局、`.tex.251111100` 贴图与 `.chain2.17`。
+- 需要配套的 RE Mesh Editor、RE Chain Editor 适配版本；仅安装上游最新版并不能获得这些格式支持。依赖补丁与固定上游版本见 [compatibility](compatibility/README.md)。
+
+从 REE.PAK.Tool 的 `Projects/OWOTS_STM_Release.list` 创建本地资源库，在游戏列表选择 **Onimusha: Way of the Sword**，然后设置 `OnimushaWotS.exe` 和独立的提取目录。无需把整个游戏预先解包。新的 PAK 缓存版本为 3，旧缓存会在使用时重建。
+
+新建资源库默认按资源所在文件夹分类，例如 `art/model/character/ch0/ch001_00/00`，可在资产浏览器中逐层展开。已有资源库可迁移，保留手工分类、资产名称和标签，操作方法见[目录分类与迁移说明](docs/asset-catalog-path-migration.md)。本机官方 Blender 5.2 已验证目录树展开和末级筛选；部分自定义 5.2 构建存在来源栏不显示的问题，详情及独立官方窗口的使用方式也见该说明。
+
+本仓库提供后台验收和打包工具，见 [tools/AGENTS.md](tools/AGENTS.md)；真实 PAK 验收记录见 [docs/onimusha-pak-validation.md](docs/onimusha-pak-validation.md)，LOD、高清纹理与完整导入验收见 [docs/onimusha-quality-validation.md](docs/onimusha-quality-validation.md)。安装包和占位资源库不包含游戏原始资源。
+
+---
+
+# 上游停更公告（保留）
 
 I am ending development of my RE Engine addons. No further updates or support will be provided.
 
@@ -84,6 +100,42 @@ If you want to extract game files other than models, open the RE Asset Library m
 > If you don't want to extract the whole game, extracting only **Model Related Files**, **Prefab Files** and **User Files** is usually enough for most modding purposes. 
 
 <img width="1301" height="604" alt="image" src="https://github.com/user-attachments/assets/bc19ed63-dee2-426d-9da3-3d93f1803ccf" />
+
+### Building a local library headlessly
+
+For reproducible development or validation builds, run `tools/build_local_library.py` inside Blender 5.2 with an isolated user configuration. The command creates the catalog, GameInfo, placeholder blend, ExtractInfo and PAK cache, while leaving the game directory and live Blender preferences unchanged:
+
+```powershell
+$env:BLENDER_USER_CONFIG = "$env:TEMP\owots-blender-config"
+$env:BLENDER_USER_SCRIPTS = "$env:TEMP\owots-blender-scripts"
+blender --background --factory-startup -noaudio `
+  --python tools/build_local_library.py -- `
+  --asset-addon D:\CODE\re\RE-Asset-Library-cn `
+  --mesh-addon D:\CODE\re\RE-Mesh-Editor-main `
+  --chain-addon D:\CODE\re\RE-Chain-Editor-main `
+  --list D:\CODE\re\REE.PAK.Tool\Projects\OWOTS_STM_Release.list `
+  --game-name OWOTS `
+  --game-exe D:\gametest\steamapps\common\OnimushaWotS\OnimushaWotS.exe `
+  --output-dir D:\CODE\re\RE-Asset-Libraries\OWOTS `
+  --extract-dir D:\CODE\re\RE-Asset-Libraries\OWOTS_EXTRACT\re_chunk_000
+```
+
+The extraction directory is created empty. Asset imports can populate it later through the normal PAK cache flow.
+
+### Migrating an existing library to path catalogs
+
+New libraries use the resource directory as the Blender catalog path, for example `art/model/character/ch0/ch001_00/00` for a resource inside that directory. To migrate an existing library, write a staged TSV outside the library first:
+
+```powershell
+python tools/migrate_asset_library_catalog.py `
+  --input-tsv D:\CODE\re\RE-Asset-Libraries\OWOTS\REAssetCatalog_OWOTS.tsv `
+  --output-tsv D:\CODE\re\_validation\OWOTS\REAssetCatalog_OWOTS.path.tsv `
+  --blend D:\CODE\re\RE-Asset-Libraries\OWOTS\REAssetLibrary_OWOTS.blend
+```
+
+The migration changes only blank or exact legacy automatic categories. Manual categories and display names, tags, platform extensions and language extensions are copied unchanged. After backing up the blend, place the staged TSV at its normal catalog path and run the printed Blender command. The update script changes catalog IDs on the existing asset objects only, keeps existing catalog UUIDs and custom labels, and does not rebuild PAK caches or extract resources.
+
+For OWOTS, many material textures have high-resolution streaming sidecars that are not listed beside the base `.tex` path. The PAK extraction path resolves the `natives/<platform>/streaming/` sidecar case-insensitively so imports can use the highest available mip chain.
 
 ### Updating the Addon and Asset Libraries
 

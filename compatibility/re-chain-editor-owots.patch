@@ -1,0 +1,402 @@
+diff --git a/.gitignore b/.gitignore
+index 7e99e36..5282bd6 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1 +1,2 @@
+-*.pyc
+\ No newline at end of file
++*.pyc
++*_updater/
+diff --git a/__init__.py b/__init__.py
+index 26200ca..e388de2 100644
+--- a/__init__.py
++++ b/__init__.py
+@@ -1,7 +1,7 @@
+ bl_info = {
+ 	"name": "RE Chain Editor",
+ 	"author": "NSA Cloud, alphaZomega",
+-	"version": (14, 0),
++	"version": (14, 0, 1),
+ 	"blender": (3, 1, 2),
+ 	"location": "File > Import-Export",
+ 	"description": "Import and export RE Engine chain files.",
+@@ -132,7 +132,7 @@ class ImportREChain(bpy.types.Operator, ImportHelper):
+ 		layout.prop_search(self, "targetArmature",bpy.data,"armatures")
+ 		layout.label(text = "Merge With Chain Collection:")
+ 		layout.prop_search(self, "mergeChain",bpy.data,"collections",icon = "COLLECTION_COLOR_02")
+-		#layout.prop(self, "importUnknowns")#TODO
++		layout.prop(self, "importUnknowns")
+ 	def execute(self, context):
+ 		options = {"targetArmature":self.targetArmature,"mergeChain":self.mergeChain,"importUnknowns":self.importUnknowns}
+ 		editorVersion = str(bl_info["version"][0])+"."+str(bl_info["version"][1])
+@@ -167,8 +167,8 @@ class ImportREChain(bpy.types.Operator, ImportHelper):
+ 		context.window_manager.fileselect_add(self)
+ 		return {'RUNNING_MODAL'}
+ 
+-supportedChainVersions = set([55,54,53,48,52,39,46,24,44,21])		
+-supportedChain2Versions = set([4,9,12,13,14,15])
++supportedChainVersions = set([55,54,53,48,52,39,46,24,44,21])
++supportedChain2Versions = set([4,9,12,13,14,15,17])		# 17: Onimusha: Way of the Sword
+ def update_targetChainCollection(self,context):
+ 	temp = bpy.data.screens.get("temp")
+ 	browserSpace = None
+@@ -792,4 +792,4 @@ def unregister():
+ 	#UNREGISTER PROPERTY GROUP PROPERTIES
+ 	#del bpy.types.Object.re_chain_header
+ if __name__ == '__main__':
+-	register()
+\ No newline at end of file
++	register()
+diff --git a/modules/blender_re_chain.py b/modules/blender_re_chain.py
+index c7d3920..efb8d8b 100644
+--- a/modules/blender_re_chain.py
++++ b/modules/blender_re_chain.py
+@@ -8,7 +8,7 @@ from .gen_functions import textColors,raiseWarning,raiseError,splitNativesPath
+ from .file_re_chain import readREChain,writeREChain
+ from .file_re_chain2 import readREChain2,writeREChain2
+ from .pymmh3 import hash_wide
+-from .blender_utils import showMessageBox,showErrorMessageBox
++from .blender_utils import showMessageBox,showErrorMessageBox,setGeometryNodeModifierInput
+ from .re_chain_propertyGroups import (getChainHeader,
+ 									  getWindSettings,
+ 									  getChainSettings,
+@@ -928,12 +928,8 @@ def importChainFile(filepath,options,isChain2 = False):
+ 				#modifier["Start Object"] = startObj.name
+ 				#modifier["End Object"] = endObj.name
+ 				#Can't access group inputs by name, have to use blender's auto generated names because ???
+-				if bpy.app.version < (4,0,0):
+-					modifier["Input_0"] = colCapsuleStartObj
+-					modifier["Input_1"] = colCapsuleEndObj
+-				else:
+-					modifier["Socket_0"] = colCapsuleStartObj
+-					modifier["Socket_1"] = colCapsuleEndObj
++				setGeometryNodeModifierInput(modifier, 0, colCapsuleStartObj)
++				setGeometryNodeModifierInput(modifier, 1, colCapsuleEndObj)
+ 		alignCollisions()
+ 	#CHAIN LINK IMPORT
+ 	#print(terminalNameHashDict)#debug
+@@ -1044,17 +1040,10 @@ def importChainFile(filepath,options,isChain2 = False):
+ 					bpy.data.node_groups.remove(modifier.node_group)
+ 				modifier.node_group = nodeGroup
+ 				
+-				if bpy.app.version < (4,0,0):
+-					if objA != None:
+-						modifier["Input_0"] = objA
+-					if objB != None:
+-						modifier["Input_1"] = objB
+-					
+-				else:
+-					if objA != None:
+-						modifier["Socket_0"] = objA
+-					if objB != None:
+-						modifier["Socket_1"] = objB
++				if objA != None:
++					setGeometryNodeModifierInput(modifier, 0, objA)
++				if objB != None:
++					setGeometryNodeModifierInput(modifier, 1, objB)
+ 				modifier.node_group.interface_update(bpy.context)
+ 				linkCollisionObj.re_chain_chainlink_collision.collisionRadius = linkCollision.collisionRadius
+ 				linkCollisionObj.re_chain_chainlink_collision.collisionFilterFlags = linkCollision.collisionFilterFlags
+@@ -1613,4 +1602,4 @@ def exportChainFile(filepath,options, version, isChain2 = False):
+ 		#for newChainGroup in newChainFile.ChainGroupList:
+ 			#print(newChainGroup)
+ 			#for newNode in newChainGroup.nodeList:
+-				#print(str(newNode)+"\n\n")
+\ No newline at end of file
++				#print(str(newNode)+"\n\n")
+diff --git a/modules/blender_re_clsp.py b/modules/blender_re_clsp.py
+index b5675b8..7668dd8 100644
+--- a/modules/blender_re_clsp.py
++++ b/modules/blender_re_clsp.py
+@@ -5,7 +5,7 @@ import os
+ from .gen_functions import textColors,raiseWarning,raiseError,splitNativesPath
+ from .file_re_clsp import readRECLSP,writeRECLSP,CLSPFile,CLSPEntry
+ from .pymmh3 import hash_wide
+-from .blender_utils import showMessageBox,showErrorMessageBox
++from .blender_utils import showMessageBox,showErrorMessageBox,setGeometryNodeModifierInput
+ from .re_chain_geoNodes import getColCapsuleGeoNodeTree,getColSphereGeoNodeTree
+ 
+ 
+@@ -503,12 +503,8 @@ def importCLSPFile(filepath,options):
+ 			#modifier["Start Object"] = startObj.name
+ 			#modifier["End Object"] = endObj.name
+ 			#Can't access group inputs by name, have to use blender's auto generated names because ???
+-			if bpy.app.version < (4,0,0):
+-				modifier["Input_0"] = colCapsuleStartObj
+-				modifier["Input_1"] = colCapsuleEndObj
+-			else:
+-				modifier["Socket_0"] = colCapsuleStartObj
+-				modifier["Socket_1"] = colCapsuleEndObj
++			setGeometryNodeModifierInput(modifier, 0, colCapsuleStartObj)
++			setGeometryNodeModifierInput(modifier, 1, colCapsuleEndObj)
+ 				
+ 			colCapsuleRootObj.re_chain_chaincollision.clspBitFlag0 = chainCollision.unknBitFlag0
+ 			colCapsuleRootObj.re_chain_chaincollision.clspBitFlag1 = chainCollision.unknBitFlag1
+@@ -718,4 +714,4 @@ def exportCLSPFile(filepath,options, version):
+ 		#for newChainGroup in newChainFile.ChainGroupList:
+ 			#print(newChainGroup)
+ 			#for newNode in newChainGroup.nodeList:
+-				#print(str(newNode)+"\n\n")
+\ No newline at end of file
++				#print(str(newNode)+"\n\n")
+diff --git a/modules/blender_utils.py b/modules/blender_utils.py
+index cbc841a..a01b360 100644
+--- a/modules/blender_utils.py
++++ b/modules/blender_utils.py
+@@ -79,4 +79,26 @@ def operator_exists(idname):
+         op_as_string(idname)
+         return True
+     except:
+-        return False
+\ No newline at end of file
++        return False
++def setGeometryNodeModifierInput(modifier, socketIndex, value):
++	"""Set a Geometry Nodes modifier input across Blender API generations.
++
++	Blender 5 exposes modifier inputs through ``modifier.properties.inputs``;
++	assigning ``modifier[\"Socket_N\"]`` now raises because NodesModifier no
++	longer accepts ID properties. Older Blender versions keep the legacy
++	Input_N/Socket_N assignment path.
++	"""
++	socketName = f"Socket_{socketIndex}"
++	if bpy.app.version >= (5, 0, 0):
++		try:
++			socket = getattr(modifier.properties.inputs, socketName)
++			socket.value = value
++			return True
++		except (AttributeError, TypeError, RuntimeError):
++			return False
++	key = f"Input_{socketIndex}" if bpy.app.version < (4, 0, 0) else socketName
++	try:
++		modifier[key] = value
++		return True
++	except (KeyError, TypeError, RuntimeError):
++		return False
+diff --git a/modules/file_re_chain2.py b/modules/file_re_chain2.py
+index 5550b66..b204397 100644
+--- a/modules/file_re_chain2.py
++++ b/modules/file_re_chain2.py
+@@ -7,8 +7,9 @@ VERSION_DD2 = 4
+ VERSION_DR = 9
+ VERSION_MHWILDS = 12#Beta
+ VERSION_MHS3 = 15
++VERSION_OWOTS = 17#Onimusha: Way of the Sword
+ 
+-supportedVersionSet = set([4,9,12,13,14,15])
++supportedVersionSet = set([4,9,12,13,14,15,17])
+ 
+ #---CHAIN STRUCTS---#
+ class SIZE_DATA():
+@@ -30,10 +31,18 @@ class SIZE_DATA():
+ 			self.CHAIN_SETTING_SIZE = 144
+ 		
+ 		if version >= VERSION_MHWILDS:
+-			self.HEADER_SIZE = 120
++			# The Python header includes the Wilds-era tail for versions 12+
++			# (128 bytes through MHS3). Chain2 v17 removes two offsets and
++			# inserts an eight-byte reserved block, bringing it back to 120.
++			self.HEADER_SIZE = 128
+ 			self.CHAIN_SETTING_SIZE = 184
+ 			self.CHAIN_LINK_SIZE = 40
+ 
++		if version >= VERSION_OWOTS:
++			# OWOTS starts the settings table immediately after the 112-byte
++			# header. The v17 header does not carry the older cfil offset tail.
++			self.HEADER_SIZE = 112
++
+ 
+ class Chain2HeaderData():
+ 	def __init__(self):
+@@ -94,14 +103,26 @@ class Chain2HeaderData():
+ 			raiseWarning("Unsupported chain version " + str(self.version) + ", file may not load correctly.")
+ 		self.errFlags = read_uint(file)#ENUM
+ 		self.masterSize = read_uint(file)
+-		self.collisionAttrAssetOffset = read_uint64(file)
++		# Chain2 v17 removed collisionAttrAssetOffset and extraDataOffset from
++		# the header and inserted eight reserved bytes after the remaining
++		# offsets. OWOTS then ends the header after the two-byte null tail;
++		# the cfil offset used by older versions is absent.
++		if version < VERSION_OWOTS:
++			self.collisionAttrAssetOffset = read_uint64(file)
++		else:
++			self.collisionAttrAssetOffset = 0
+ 		self.chainModelCollisionOffset = read_uint64(file)
+-		self.extraDataOffset = read_uint64(file)
++		if version < VERSION_OWOTS:
++			self.extraDataOffset = read_uint64(file)
++		else:
++			self.extraDataOffset = 0
+ 		self.chainGroupOffset = read_uint64(file)
+ 		self.chainLinkOffset = read_uint64(file)
+ 		self.chainFreeLinkOffset = read_uint64(file)
+ 		self.chainSettingsOffset = read_uint64(file)
+ 		self.chainWindSettingsOffset = read_uint64(file)
++		if version >= VERSION_OWOTS:
++			file.seek(8, 1)
+ 		self.chainGroupCount = read_ubyte(file)
+ 		self.chainSettingsCount = read_ubyte(file)
+ 		self.chainModelCollisionCount = read_ubyte(file)
+@@ -131,8 +152,9 @@ class Chain2HeaderData():
+ 			self.wilds_unkn1 = read_ubyte(file)
+ 			self.wilds_unkn2 = read_ubyte(file)
+ 			self.padding0 = read_ushort(file)
+-			self.padding1 = read_uint(file)
+-			self.padding2 = read_uint(file)
++			if version < VERSION_OWOTS:
++				self.padding1 = read_uint(file)
++				self.padding2 = read_uint(file)
+ 		
+ 	def write(self,file):
+ 		version = self.version
+@@ -140,14 +162,18 @@ class Chain2HeaderData():
+ 		write_uint(file, self.magic)
+ 		write_uint(file, self.errFlags)#ENUM
+ 		write_uint(file, self.masterSize)
+-		write_uint64(file, self.collisionAttrAssetOffset)
++		if version < VERSION_OWOTS:
++			write_uint64(file, self.collisionAttrAssetOffset)
+ 		write_uint64(file, self.chainModelCollisionOffset)
+-		write_uint64(file, self.extraDataOffset)
++		if version < VERSION_OWOTS:
++			write_uint64(file, self.extraDataOffset)
+ 		write_uint64(file, self.chainGroupOffset)
+ 		write_uint64(file, self.chainLinkOffset)
+ 		write_uint64(file, self.chainFreeLinkOffset)
+ 		write_uint64(file, self.chainSettingsOffset)
+ 		write_uint64(file, self.chainWindSettingsOffset)
++		if version >= VERSION_OWOTS:
++			file.write(b"\x00" * 8)
+ 		write_ubyte(file, self.chainGroupCount)
+ 		write_ubyte(file, self.chainSettingsCount)
+ 		write_ubyte(file, self.chainModelCollisionCount)
+@@ -177,8 +203,9 @@ class Chain2HeaderData():
+ 			write_ubyte(file, self.wilds_unkn1)
+ 			write_ubyte(file, self.wilds_unkn2)
+ 			write_ushort(file, self.padding0)
+-			write_uint(file, self.padding1)
+-			write_uint(file, self.padding2)
++			if version < VERSION_OWOTS:
++				write_uint(file, self.padding1)
++				write_uint(file, self.padding2)
+ 			
+ 	def __str__(self):
+ 		return str(self.__class__) + ": " + str(self.__dict__)
+@@ -1295,4 +1322,4 @@ def writeREChain2(chainFile,filepath):
+ 	
+ 	chainFile.write(file)
+ 	file.close()
+-	print(textColors.OKGREEN + "__________________________________\nChain2 write finished." + textColors.ENDC)
+\ No newline at end of file
++	print(textColors.OKGREEN + "__________________________________\nChain2 write finished." + textColors.ENDC)
+diff --git a/modules/re_chain_operators.py b/modules/re_chain_operators.py
+index 86f40c5..70792ba 100644
+--- a/modules/re_chain_operators.py
++++ b/modules/re_chain_operators.py
+@@ -11,7 +11,7 @@ from .file_re_chain import ChainHeaderData,ChainSettingsData,WindSettingsData,Ch
+ from .file_re_chain2 import Chain2HeaderData,Chain2SettingsData,Chain2WindSettingsData,Chain2GroupData,Chain2NodeData,Chain2JiggleData,Chain2CollisionData,Chain2LinkData,Chain2LinkNode
+ from .re_chain_propertyGroups import getChainHeader,getWindSettings,getChainSettings,getChainGroup,getChainNode,getChainJiggle,getChainLink,getChainCollision,getChainLinkCollisionNode
+ from .ui_re_chain_panels import tag_redraw
+-from .blender_utils import showErrorMessageBox,outlinerShowObject
++from .blender_utils import showErrorMessageBox,outlinerShowObject,setGeometryNodeModifierInput
+ from .re_chain_presets import saveAsPreset,readPresetJSON
+ from .re_chain_geoNodes import getColCapsuleGeoNodeTree,getColSphereGeoNodeTree,getChainLinkGeoNodeTree,getConeGeoNodeTree,getLinkColGeoNodeTree,getChainGroupMat
+ 
+@@ -389,12 +389,8 @@ class WM_OT_CollisionFromBones(Operator):
+ 					#modifier["Start Object"] = startObj.name
+ 					#modifier["End Object"] = endObj.name
+ 					#Can't access group inputs by name, have to use blender's auto generated names because ???
+-					if bpy.app.version < (4,0,0):
+-						modifier["Input_0"] = colCapsuleStartObj
+-						modifier["Input_1"] = colCapsuleEndObj
+-					else:
+-						modifier["Socket_0"] = colCapsuleStartObj
+-						modifier["Socket_1"] = colCapsuleEndObj
++					setGeometryNodeModifierInput(modifier, 0, colCapsuleStartObj)
++					setGeometryNodeModifierInput(modifier, 1, colCapsuleEndObj)
+ 				alignCollisions()
+ 				self.report({"INFO"},"Created collision from bone.")
+ 		else:
+@@ -729,17 +725,10 @@ class WM_OT_CreateChainLinkCollision(Operator):
+ 							bpy.data.node_groups.remove(modifier.node_group)
+ 						modifier.node_group = nodeGroup
+ 						
+-						if bpy.app.version < (4,0,0):
+-							if objA != None:
+-								modifier["Input_0"] = objA
+-							if objB != None:
+-								modifier["Input_1"] = objB
+-							
+-						else:
+-							if objA != None:
+-								modifier["Socket_0"] = objA
+-							if objB != None:
+-								modifier["Socket_1"] = objB
++						if objA != None:
++							setGeometryNodeModifierInput(modifier, 0, objA)
++						if objB != None:
++							setGeometryNodeModifierInput(modifier, 1, objB)
+ 						modifier.node_group.interface_update(bpy.context)
+ 						if isChain2:
+ 							linkCollision = Chain2LinkNode()
+@@ -2189,4 +2178,4 @@ class WM_OT_SetCFILPath(Operator):
+ 		return {'FINISHED'}
+ 	
+ 	def invoke(self,context,event):
+-		return context.window_manager.invoke_props_dialog(self)
+\ No newline at end of file
++		return context.window_manager.invoke_props_dialog(self)
+diff --git a/modules/re_chain_propertyGroups.py b/modules/re_chain_propertyGroups.py
+index d570f0f..79d4c40 100644
+--- a/modules/re_chain_propertyGroups.py
++++ b/modules/re_chain_propertyGroups.py
+@@ -16,6 +16,7 @@ from .pymmh3 import hash_wide
+ from .file_re_chain2 import Chain2SettingsSubData
+ 
+ from .re_chain_presets import reloadPresets
++from .blender_utils import setGeometryNodeModifierInput
+ 
+ #V2 - Removed AttrFlags enum, replaced with a pseudo enum using int value and operator due to large variations in values
+ 
+@@ -144,10 +145,7 @@ def update_AngleLimitRad(self, context):
+ 							
+ 							if "REChainGeometryNodes" in frameChild.modifiers:
+ 								modifier = frameChild.modifiers["REChainGeometryNodes"]
+-								if bpy.app.version < (4,0,0):
+-									modifier["Input_0"] = obj.re_chain_chainnode.angleLimitRad
+-								else:
+-									modifier["Socket_0"] = obj.re_chain_chainnode.angleLimitRad
++								setGeometryNodeModifierInput(modifier, 0, obj.re_chain_chainnode.angleLimitRad)
+ 								modifier.node_group.interface_update(context)
+ 								#print("Set modifier value")
+ 							#frameChild.data.spot_size = obj.re_chain_chainnode.angleLimitRad
+@@ -279,10 +277,7 @@ def update_ChainGroupA(self, context):
+ 						break
+ 				if nodeObj != None:
+ 					if "REChainGeometryNodes" in obj.modifiers:
+-						if bpy.app.version < (4,0,0):
+-							obj.modifiers["REChainGeometryNodes"]["Input_0"] = nodeObj
+-						else:
+-							obj.modifiers["REChainGeometryNodes"]["Socket_0"] = nodeObj
++						setGeometryNodeModifierInput(obj.modifiers["REChainGeometryNodes"], 0, nodeObj)
+ 						obj.modifiers["REChainGeometryNodes"].node_group.interface_update(context)
+ 			obj.name = f"LINK_{str(linkIndex).zfill(2)} - {shortNameA} > {shortNameB}"
+ def update_ChainGroupB(self, context):
+@@ -307,10 +302,7 @@ def update_ChainGroupB(self, context):
+ 						break
+ 				if nodeObj != None:
+ 					if "REChainGeometryNodes" in obj.modifiers:
+-						if bpy.app.version < (4,0,0):
+-							obj.modifiers["REChainGeometryNodes"]["Input_1"] = nodeObj
+-						else:
+-							obj.modifiers["REChainGeometryNodes"]["Socket_1"] = nodeObj
++						setGeometryNodeModifierInput(obj.modifiers["REChainGeometryNodes"], 1, nodeObj)
+ 						obj.modifiers["REChainGeometryNodes"].node_group.interface_update(context)
+ 			if obj.re_chain_chainlink.chainGroupAObject in bpy.data.objects and bpy.data.objects[obj.re_chain_chainlink.chainGroupAObject].get("TYPE") == "RE_CHAIN_CHAINGROUP":
+ 				groupAObj = bpy.data.objects[obj.re_chain_chainlink.chainGroupAObject]
+@@ -2498,4 +2490,4 @@ class chainClipboardPropertyGroup(bpy.types.PropertyGroup):
+ 		name = "Frame Orientation",
+ 		size = 3,
+ 		subtype = "XYZ"
+-		)
+\ No newline at end of file
++		)

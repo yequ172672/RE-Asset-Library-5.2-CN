@@ -30,6 +30,8 @@ class PakTOCEntry():
 		self.checksum = 0
 		self.compressionType = 0
 		self.encryptionType = 0
+		self.offsetType = 0
+		self.useChunkTable = False
 		
 	def read(self,file,entryStruct):
 		
@@ -83,12 +85,11 @@ class PakTOC():
 		
 		tocData = file.read(entrySize*header.entryCount)
 		
+		if header.featureUseUnknTable:
+			file.seek(4,1)#Skip empty table, used in wilds HD texture pak
+		if header.featureUseUnknRE9Data:
+			file.seek(9,1)#Skip RE9 Unkn Data
 		if header.featureIsTOCEncrypted:
-			if header.featureUseUnknTable:
-				file.seek(4,1)#Skip empty table, used in wilds HD texture pak
-				
-			if header.featureUseUnknRE9Data:
-				file.seek(9,1)#Skip RE9 Unkn Data
 			decryptStartTime = time.time()
 			
 			encryptedKey = bytearray(file.read(128))
@@ -124,7 +125,11 @@ class PakTOC():
 				) = unpackData
 				entry.compressionType = entry.attributes & 0xF
 				entry.encryptionType = (entry.attributes & 0x00FF0000) >> 16
-				entry.useRemapTable = (entry.attributes >> 24) & 0xFF
+				entry.offsetType = (entry.attributes >> 24) & 0x0F
+				entry.useChunkTable = entry.offsetType == 1
+				# A chunk content table uses offset as a chunk index.  It must not
+				# be passed through an entry remap table.
+				entry.useRemapTable = False
 				
 				if entry.useRemapTable and isRemapTableUsed:
 					entry.offset = remapTable.entryList[entry.offset].fileOffset
@@ -152,6 +157,7 @@ class PakHeader():
 		#Has no function in reading or writing, purely to make code easier to read
 		self.featureIsTOCEncrypted = False
 		self.featureUseUnknTable = False
+		self.featureUseChunkTable = False
 		self.featureUseRemapTable = False
 	def read(self,file):
 		self.magic = read_uint(file)
@@ -166,11 +172,14 @@ class PakHeader():
 		self.featureUseUnknRE9Data = bool((self.feature >> 2) & 1)
 		self.featureIsTOCEncrypted = bool((self.feature >> 3) & 1)
 		self.featureUseUnknTable = bool((self.feature >> 4) & 1)
-		self.featureUseRemapTable = bool((self.feature >> 5) & 1)
+		self.featureUseChunkTable = bool((self.feature >> 5) & 1)
+		self.featureUseRemapTable = bool((self.feature >> 6) & 1)
 		
 		
 		if self.majorVersion != 2 and self.majorVersion != 4 or self.minorVersion != 0 and self.minorVersion != 1 and self.minorVersion != 2:
-			raise Exception(f"Invalid Pak Version ({self.majorVersion}.{self.minorVersion}), expected 2.0, 4.0 & 4.1")
+			raise Exception(f"Invalid Pak Version ({self.majorVersion}.{self.minorVersion}), expected 2.0, 4.0, 4.1 & 4.2")
+		if self.featureUseRemapTable:
+			raise Exception("PAK entry remap tables are unsupported")
 			
 		#if self.feature != 0 and self.feature != 8 and self.feature != 24 and self.feature != 40:
 		#	raise Exception(f"Unsupported Encryption Type ({self.feature})")
@@ -196,25 +205,66 @@ class PakRemapTableEntry():
 class PakRemapTable():
 	def __init__(self):
 		
-		#TODO Fix this to read chunks properly
-		#There's a lot of things I'll have to change to make this work properly and I don't want to get into it right now
-		#This will cause .mov and possibly some sound files to not extract correctly in pragmata and newer.
-		 
+		# Remap tables are intentionally unsupported by this reader.  Keep the
+		# legacy container for callers that inspect the object on older files.
 		self.unkn0 = 0#TODO change to uint block size
-		self.unkn1 = 0#
+		self.unkn1 = 0
 		self.entryCount = 0
 		self.entryList = []
 		
 	def read(self,file):
-		
 		self.unkn0 = read_ushort(file)
-		self.unkn1 = read_ushort(file)#
+		self.unkn1 = read_ushort(file)
 		self.entryCount = read_uint(file)
 		if self.unkn1 == 8:
 			for _ in range(0,self.entryCount):
 				entry = PakRemapTableEntry()
 				entry.read(file)
 				self.entryList.append(entry)
+
+
+class PakChunkEntry():
+	def __init__(self):
+		self.offset = 0
+		self.attributes = 0
+
+	@property
+	def overflow(self):
+		return self.attributes & 0x3FF
+
+	@property
+	def compressedSize(self):
+		return self.attributes >> 10
+
+	@property
+	def fileOffset(self):
+		return self.offset + (self.overflow << 32)
+
+
+class PakChunkTable():
+	def __init__(self):
+		self.blockSize = 0
+		self.entryCount = 0
+		self.entryList = []
+
+	def read(self,file):
+		self.blockSize = read_uint(file)
+		self.entryCount = read_uint(file)
+		if self.blockSize <= 0 or self.entryCount > 100000000:
+			raise Exception("Invalid PAK chunk content table")
+		self.entryList = []
+		for _ in range(0,self.entryCount):
+			entry = PakChunkEntry()
+			entry.offset = read_uint(file)
+			entry.attributes = read_uint(file)
+			self.entryList.append(entry)
+
+	def write(self,file):
+		write_uint(file,self.blockSize)
+		write_uint(file,len(self.entryList))
+		for entry in self.entryList:
+			write_uint(file,entry.offset)
+			write_uint(file,entry.attributes)
 		
 
 class PakFile():
@@ -222,34 +272,24 @@ class PakFile():
 		self.header = PakHeader()
 		self.toc = PakTOC()
 		self.remapTable = None
+		self.chunkTable = None
 		self.data = bytes()#Unused
 	def read(self,file):#For testing, not supposed to be used
 		self.header.read(file)
 		#Does not remap offsets, keeps them as the original ones
 		self.toc.read(file,self.header,self.remapTable)
+		if self.header.featureUseChunkTable:
+			self.chunkTable = PakChunkTable()
+			self.chunkTable.read(file)
 		self.data = file.read()
 	def readTOC(self,file):
 		self.header.read(file)
-		if self.header.majorVersion >= 5 or (self.header.majorVersion == 4 and self.header.minorVersion >= 2) and self.header.featureUseRemapTable:
-			tocStartPos = file.tell()
-			remapTableOffset = 16 + self.header.entryCount * 48
-			if self.header.featureUseUnknTable:
-				remapTableOffset += 4#Skip unkn table
-			if self.header.featureUseUnknRE9Data:
-				remapTableOffset += 9#Skip unkn data
-			if self.header.featureIsTOCEncrypted:
-				remapTableOffset += 128#Encryption key size
-			#print(f"Remap table offset: {remapTableOffset}")
-			file.seek(remapTableOffset)
-			self.remapTable = PakRemapTable()
-			print("Loading pak remap table.")
-			self.remapTable.read(file)
-			
-			if self.remapTable.unkn1 != 8:
-				print("Warning: Remap table value is not 8, skipping.")
-				self.remapTable = None
-			file.seek(tocStartPos)
 		self.toc.read(file,self.header,self.remapTable)
+		if self.header.featureUseChunkTable:
+			self.chunkTable = PakChunkTable()
+			self.chunkTable.read(file)
+		else:
+			self.chunkTable = None
 		
 	def write(self,file):#Only for creating patch paks when called by pak utils atm
 		self.header.write(file)
@@ -266,9 +306,11 @@ class PakFile():
 				file.seek(4,1)#Skip empty table, used in wilds HD texture pak
 			for _ in range(128):#Write dummy encryption key
 				write_ubyte(file,255)
+		if self.header.featureUseChunkTable and self.chunkTable is not None:
+			self.chunkTable.write(file)
 		file.write(self.data)
 	
-def ReadPakTOC(pakPath):
+def ReadPakTOC(pakPath,suppressErrors = False):
 	try:
 		if os.path.getsize(pakPath) != 0:#Check for empty paks Capcom puts in when updating to rt versions
 			with open(pakPath,"rb") as file:
@@ -278,8 +320,18 @@ def ReadPakTOC(pakPath):
 		else:
 			return []
 	except Exception as err:
-		print(f"Could not read {pakPath}, skipping. {str(err)}")
-		return []
+		print(f"Could not read {pakPath}: {str(err)}")
+		if suppressErrors:
+			return []
+		raise
+
+def ReadPakChunkTable(pakPath):
+	if os.path.getsize(pakPath) == 0:
+		return None
+	with open(pakPath,"rb") as file:
+		pakFile = PakFile()
+		pakFile.readTOC(file)
+		return pakFile.chunkTable
 
 #Not for use with large paks
 def readPak(filepath):

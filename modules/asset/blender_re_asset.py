@@ -51,6 +51,17 @@ def addChunkPath(chunkPath,gameName):
 		item.path = chunkPath
 		print(f"Saved chunk path for {gameName}: {chunkPath}")
 		bpy.ops.wm.save_userpref()
+
+def _operatorAccepted(result):
+	return result is not None and ("FINISHED" in result or "RUNNING_MODAL" in result)
+
+def _reportImportFailure(message):
+	print("RE Asset Library - " + message)
+	try:
+		if not bpy.app.background:
+			showErrorMessageBox(message)
+	except Exception:
+		pass
 	
 def importREMeshAsset(obj,meshPath,assetPreferences):
 	print(f"RE Asset Library - Attemping import of {obj.name}")
@@ -61,20 +72,28 @@ def importREMeshAsset(obj,meshPath,assetPreferences):
 		
 		split = os.path.split(meshPath)
 		lastImportedCollection = bpy.context.scene.get("REMeshLastImportedCollection")
-		if assetPreferences.showMeshImportOptions:
-			meshEditorPreferencesName = findREMeshEditorAddon()
-			if meshEditorPreferencesName:
-				meshEditorPreferences = bpy.context.preferences.addons[meshEditorPreferencesName].preferences
-				
-				originalSetting = meshEditorPreferences.dragDropImportOptions
-				meshEditorPreferences.dragDropImportOptions = True
-				bpy.ops.re_mesh.importfile("INVOKE_DEFAULT",directory=split[0], files=[{"name":split[1]}])
-				meshEditorPreferences.dragDropImportOptions = originalSetting
-				
+		try:
+			if assetPreferences.showMeshImportOptions:
+				meshEditorPreferencesName = findREMeshEditorAddon()
+				if meshEditorPreferencesName:
+					meshEditorPreferences = bpy.context.preferences.addons[meshEditorPreferencesName].preferences
+					originalSetting = meshEditorPreferences.dragDropImportOptions
+					meshEditorPreferences.dragDropImportOptions = True
+					try:
+						result = bpy.ops.re_mesh.importfile("INVOKE_DEFAULT",directory=split[0], files=[{"name":split[1]}])
+					finally:
+						meshEditorPreferences.dragDropImportOptions = originalSetting
+				else:
+					_reportImportFailure("Mesh editor preferences not found. Can't import.")
+					return False
 			else:
-				print("Mesh editor preferences not found. Can't import.")
-		else:
-			bpy.ops.re_mesh.importfile(directory=split[0], files=[{"name":split[1]}])
+				result = bpy.ops.re_mesh.importfile(directory=split[0], files=[{"name":split[1]}])
+		except Exception as err:
+			_reportImportFailure(f"Mesh import failed: {err}")
+			return False
+		if not _operatorAccepted(result):
+			_reportImportFailure(f"Mesh import was cancelled for {split[1]}")
+			return False
 		
 		
 		#I didn't intend for this to move the objects but this actually ends up working out	
@@ -90,6 +109,8 @@ def importREMeshAsset(obj,meshPath,assetPreferences):
 							#bpy.context.view_layer.objects.active = activeObj
 	else:
 		showErrorMessageBox(obj.get("assetPath",obj.name)+" - File not found at any chunk paths")
+		return False
+	return True
 
 
 def importREChainAsset(obj,chainPath,assetPreferences):
@@ -105,11 +126,21 @@ def importREChainAsset(obj,chainPath,assetPreferences):
 					if obj.type == "ARMATURE":
 						armatureDataName = obj.data.name
 						break
-			bpy.ops.re_chain.importfile("INVOKE_DEFAULT",filepath = chainPath,directory=split[0], files=[{"name":split[1]}],targetArmature = armatureDataName)
+			try:
+				result = bpy.ops.re_chain.importfile("INVOKE_DEFAULT",filepath = chainPath,directory=split[0], files=[{"name":split[1]}],targetArmature = armatureDataName,importUnknowns = obj.get("~GAME") == "OWOTS")
+			except Exception as err:
+				_reportImportFailure(f"Chain import failed: {err}")
+				return False
+			if not _operatorAccepted(result):
+				_reportImportFailure(f"Chain import was cancelled for {split[1]}")
+				return False
+			return True
 		else:
-			showErrorMessageBox("RE Chain Editor is not installed. Chain files can't be imported.")	
+			_reportImportFailure("RE Chain Editor is not installed. Chain files can't be imported.")
+			return False
 	else:
-		showErrorMessageBox(obj.get("assetPath",obj.name)+" - File not found at any chunk paths")
+		_reportImportFailure(obj.get("assetPath",obj.name)+" - File not found at any chunk paths")
+		return False
 def importREChain2Asset(obj,chainPath,assetPreferences):
 	print(f"RE Asset Library - Attemping import of {obj.name}")
 	
@@ -124,12 +155,23 @@ def importREChain2Asset(obj,chainPath,assetPreferences):
 					if obj.type == "ARMATURE":
 						armatureDataName = obj.data.name
 						break
-			bpy.ops.re_chain2.importfile("INVOKE_DEFAULT",filepath = chainPath,directory=split[0], files=[{"name":split[1]}],targetArmature = armatureDataName)
+			try:
+				result = bpy.ops.re_chain2.importfile("INVOKE_DEFAULT",filepath = chainPath,directory=split[0], files=[{"name":split[1]}],targetArmature = armatureDataName,importUnknowns = obj.get("~GAME") == "OWOTS")
+			except Exception as err:
+				_reportImportFailure(f"Chain2 import failed: {err}")
+				return False
+			if not _operatorAccepted(result):
+				_reportImportFailure(f"Chain2 import was cancelled for {split[1]}")
+				return False
+			return True
 		else:
-			showErrorMessageBox("RE Chain Editor is not installed. Chain files can't be imported.")
+			_reportImportFailure("RE Chain Editor is not installed. Chain files can't be imported.")
+			return False
 			
 	else:
-		showErrorMessageBox(obj.get("assetPath",obj.name)+" - File not found at any chunk paths")
+		_reportImportFailure(obj.get("assetPath",obj.name)+" - File not found at any chunk paths")
+		return False
+	return True
 		
 def importREFBXSkelAsset(obj,fbxSkelPath,assetPreferences):
 	print(f"RE Asset Library - Attemping import of {obj.name}")
@@ -139,7 +181,15 @@ def importREFBXSkelAsset(obj,fbxSkelPath,assetPreferences):
 		#objMatrix = obj.matrix_world
 		
 		split = os.path.split(fbxSkelPath)
-		bpy.ops.re_fbxskel.importfile(filepath = fbxSkelPath,directory=split[0], files=[{"name":split[1]}])
+		try:
+			result = bpy.ops.re_fbxskel.importfile(filepath = fbxSkelPath,directory=split[0], files=[{"name":split[1]}])
+		except Exception as err:
+			_reportImportFailure(f"FBX skeleton import failed: {err}")
+			return False
+		if not _operatorAccepted(result):
+			_reportImportFailure(f"FBX skeleton import was cancelled for {split[1]}")
+			return False
+		return True
 	else:
-		showErrorMessageBox(obj.get("assetPath",obj.name)+" - File not found at any chunk paths")					
-				
+		_reportImportFailure(obj.get("assetPath",obj.name)+" - File not found at any chunk paths")
+		return False

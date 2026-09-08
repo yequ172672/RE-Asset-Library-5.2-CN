@@ -1,4 +1,6 @@
 # Byte-compiled / optimized / DLL files
+*_updater/
+modules/pak/TEMP/
 __pycache__/
 *.py[cod]
 *$py.class

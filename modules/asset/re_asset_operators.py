@@ -22,6 +22,11 @@ from ..blender_utils import showMessageBox
 from ..mdf.re_mdf_updater_utils import generateMaterialCompendium
 from ..rszmini.re_rsz_updater_utils import generateRSZCRCCompendium
 from ..gen_functions import openFolder
+from .catalog_paths import (
+    catalog_display_name,
+    catalog_paths_with_parents,
+    category_for_resource_path,
+)
 
 
 CRC_INFO_VERSION = 1
@@ -29,7 +34,15 @@ CRC_INFO_VERSION = 1
 #IMAGE_FORMAT = ".png"
 IMAGE_FORMAT = ".jp2"
 
-def REToolListFileToREAssetCatalogAndGameInfo(listPath,outputCatalogPath,outputGameInfoPath,fileTypeWhiteList = ["mesh","chain","chain2"]):
+def REToolListFileToREAssetCatalogAndGameInfo(listPath,outputCatalogPath,outputGameInfoPath,fileTypeWhiteList = ["mesh","chain","chain2"], categoryMode = "path"):
+	"""Build the resource catalog and game metadata from an RE Tool list.
+
+	``categoryMode`` defaults to ``path`` so newly-built libraries expose the
+	resource directory hierarchy.  ``legacy`` remains available for callers
+	that need the historical extension categories.
+	"""
+	if categoryMode not in {"path", "legacy"}:
+		raise ValueError(f"Unknown catalog category mode: {categoryMode}")
 	GAMEINFO_VERSION = 1#For determining when changes are made to the structure of gameinfo files
 
 	langDict = {
@@ -144,6 +157,8 @@ def REToolListFileToREAssetCatalogAndGameInfo(listPath,outputCatalogPath,outputG
 					platformExtension = split[3]
 					langExtension = split[4]
 				filePath = os.path.join(splitNativesPath(os.path.split(line)[0])[1],f"{fileName}.{fileType}").replace("\\","/").replace(os.sep,"/")
+				if categoryMode == "path":
+					category = category_for_resource_path(filePath)
 				displayName = fileName+"."+fileType
 				
 				if platformExtension != "":
@@ -516,24 +531,27 @@ def createBlenderCatalog(categoryNames, blender_assets_cat_path,makeNew = False)
 		   
 			for line in lines:
 				if line.strip() != "" and not line.startswith("#") and "VERSION " not in line:
-					uuidString = line.split(":")[0]
-					full_catalog_name = line.split(":")[1].split(":")[0].strip()
-					simple_catalog_name = line.split(":")[2].strip()
+					parts = line.rstrip("\r\n").split(":", 2)
+					if len(parts) != 3:
+						continue
+					uuidString, full_catalog_name, simple_catalog_name = parts
+					full_catalog_name = full_catalog_name.strip()
+					simple_catalog_name = simple_catalog_name.strip()
 					catalog_entry = f"{full_catalog_name}:{simple_catalog_name}"
 					#print(catalog_entry)
 					
-					if catalog_entry not in catalogEntrySet:
+					if full_catalog_name not in catalogIDDict:
 						catalogEntryList.append(f"{uuidString}:{catalog_entry}")
 						catalogEntrySet.add(catalog_entry)
 						catalogIDDict[full_catalog_name] = uuidString
 					
-	for name in categoryNames:
+	for name in catalog_paths_with_parents(categoryNames):
 		full_catalog_name = name
-		simple_catalog_name = name.replace("/","-")
+		simple_catalog_name = catalog_display_name(name)
 		catalog_entry = f"{full_catalog_name}:{simple_catalog_name}"
 
 		# Check if the full catalog name is already listed to avoid duplicates
-		if catalog_entry not in catalogEntrySet and name != "":
+		if name not in catalogIDDict and name != "":
 			uuidString = str(uuid.uuid4())
 			catalogEntryList.append(f"{uuidString}:{catalog_entry}")
 			catalogEntrySet.add(catalog_entry)
@@ -561,6 +579,7 @@ VERSION 1
 
 def getCatalogUUIDDict(blender_assets_cat_filepath):# Key: catalogUUID, Value:Category String
 	catalogEntrySet = set()#For checking exact matches without including uuid
+	catalogPathSet = set()#For preserving the first UUID for a duplicate path
 	catalogEntryList = []#For final list of entries including uuid
 	catalogIDDict = dict()
 	if os.path.isfile(blender_assets_cat_filepath):
@@ -569,15 +588,19 @@ def getCatalogUUIDDict(blender_assets_cat_filepath):# Key: catalogUUID, Value:Ca
 		   
 			for line in lines:
 				if line.strip() != "" and not line.startswith("#") and "VERSION " not in line:
-					uuidString = line.split(":")[0]
-					full_catalog_name = line.split(":")[1].split(":")[0].strip()
-					simple_catalog_name = line.split(":")[2].strip()
+					parts = line.rstrip("\r\n").split(":", 2)
+					if len(parts) != 3:
+						continue
+					uuidString, full_catalog_name, simple_catalog_name = parts
+					full_catalog_name = full_catalog_name.strip()
+					simple_catalog_name = simple_catalog_name.strip()
 					catalog_entry = f"{full_catalog_name}:{simple_catalog_name}"
 					#print(catalog_entry)
 					
-					if catalog_entry not in catalogEntrySet:
+					if full_catalog_name not in catalogPathSet:
 						catalogEntryList.append(f"{uuidString}:{catalog_entry}")
 						catalogEntrySet.add(catalog_entry)
+						catalogPathSet.add(full_catalog_name)
 						catalogIDDict[uuidString] = full_catalog_name
 	return catalogIDDict
 def loadREAssetCatalogFile(tsvPath,fileTypeWhiteListSet = set()):
@@ -804,7 +827,7 @@ class WM_OT_ImportREAssetLibraryFromCatalog(Operator):
 
 		assetEntryList = loadREAssetCatalogFile(catalogPath,set(gameInfo["fileTypeWhiteList"]))
 		categorySet = set([entry[2].strip() for entry in assetEntryList])
-		catalogIDDict = createBlenderCatalog(list(categorySet), os.path.split(bpy.data.filepath)[0])
+		catalogIDDict = createBlenderCatalog(sorted(categorySet), os.path.split(bpy.data.filepath)[0])
 		#print(categorySet)
 		
 		for assetEntry in assetEntryList:
