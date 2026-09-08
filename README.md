@@ -4,7 +4,7 @@
 
 在 Blender「编辑 → 偏好设置 → 界面 → 翻译」中选择简体中文，并启用界面和工具提示翻译。插件会随 Blender 语言切换，英文环境仍显示英文；文件格式标识、游戏代号和操作符接口保持原样。
 
-建议安装打包后的 `RE-Asset-Library-5.2-CN.zip`。ZIP 内保留 `RE-Asset-Library-main` 模块目录，以兼容已有插件设置；安装新版时替换同名旧插件，避免同时启用多个副本。
+建议安装打包后的 `RE-Asset-Library-5.2-CN.zip`。ZIP 文件名可以带 `5.2-CN`，但 ZIP 内部的顶层模块目录必须保持 `RE-Asset-Library-main`、`RE-Mesh-Editor-main`、`RE-Chain-Editor-main`，以兼容已有插件设置。不要直接安装 GitHub「Code → Download ZIP」源码包，也不要把内部目录改成带点号的 `*-5.2-CN`；Blender 会把点号当作 Python 模块分隔符，导致 `No module named '...-5'`。安装新版时替换同名旧插件，避免同时启用多个副本。
 
 ---
 
