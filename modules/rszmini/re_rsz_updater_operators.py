@@ -5,6 +5,7 @@ import os
 from bpy.types import Operator
 
 from ..blender_utils import showMessageBox
+from ...translations import tr_iface, tr_report
 from .re_rsz_updater_utils import batchUpdateRSZFiles
 
 
@@ -63,10 +64,10 @@ class WM_OT_BatchRSZUpdater(Operator):
 				bpy.ops.wm.console_toggle()
 			except:
 				 pass
-			showMessageBox(f"Updated {updateCount} RSZ files.",title="RSZ Updater")
-			self.report({"INFO"},"Finished updating RSZ files.")
+			showMessageBox(tr_iface("Updated {count} RSZ files.", count=updateCount),title=tr_iface("RSZ Updater"))
+			self.report({"INFO"},tr_report("Finished updating RSZ files."))
 		else:
-			showMessageBox(f"An asset library with RSZ updater support must be chosen and a mod directory must be set.",title="RSZ Updater")
+			showMessageBox(tr_iface("An asset library with RSZ updater support must be chosen and a mod directory must be set."),title=tr_iface("RSZ Updater"))
 			return {'CANCELLED'}
 		return {'FINISHED'}
 	@classmethod
@@ -80,7 +81,7 @@ class WM_OT_BatchRSZUpdater(Operator):
 		context.window.cursor_warp(centerX,centerY)
 		if "modWorkspace_directory" in bpy.context.scene:
 			self.dirPath = bpy.context.scene["modWorkspace_directory"]
-		return context.window_manager.invoke_props_dialog(self,width = 500,confirm_text = "Update RSZ Files")
+		return context.window_manager.invoke_props_dialog(self,width = 500,confirm_text = tr_iface("Update RSZ Files"))
 
 	
 	def draw(self,context):
@@ -95,4 +96,4 @@ class WM_OT_BatchRSZUpdater(Operator):
 			layout.prop(self,"searchSubdirectories")
 			layout.prop(self,"createBackups")
 		else:
-			layout.label(text=f"No asset libraries that support this feature are installed.",icon = "ERROR")
+			layout.label(text=tr_iface("No asset libraries that support this feature are installed."),icon = "ERROR")

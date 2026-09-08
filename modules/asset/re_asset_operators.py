@@ -19,6 +19,7 @@ from bpy.types import Operator
 from ..gen_functions import splitNativesPath,wildCardFileSearch,progressBar,formatByteSize
 from .blender_re_asset import getChunkPathList
 from ..blender_utils import showMessageBox
+from ...translations import tr_iface, tr_report
 from ..mdf.re_mdf_updater_utils import generateMaterialCompendium
 from ..rszmini.re_rsz_updater_utils import generateRSZCRCCompendium
 from ..gen_functions import openFolder
@@ -413,7 +414,7 @@ class WM_OT_RenderREAssets(Operator):
 		
 		if os.path.isfile(scriptPath) and os.path.isfile(renderJobPath) and foundAssets:
 			subprocess.Popen([bpy.app.binary_path, "--python", scriptPath,"--",renderJobPath])
-			self.report({"INFO"},"Started asset render job.")
+			self.report({"INFO"},tr_report("Started asset render job."))
 		else:
 			if not os.path.isfile(renderJobPath):
 				print("RenderJob json file was not generated. cannot render.")
@@ -422,7 +423,7 @@ class WM_OT_RenderREAssets(Operator):
 				print("No renderable files found. This may mean that the chunk path is not correct.\nIf files in the library can not be found in any chunk paths, they can't be rendered.")
 			if not os.path.isfile(scriptPath):
 				print(f"{scriptPath} is missing.")
-			self.report({"ERROR"},"Could not start asset render job. See console. (Window > Toggle System Console)")
+			self.report({"ERROR"},tr_report("Could not start asset render job. See console. (Window > Toggle System Console)"))
 		return {'FINISHED'}
 	@classmethod
 	def poll(self,context):
@@ -501,14 +502,14 @@ class WM_OT_FetchREAssetThumbnails(Operator):
 				except:
 					pass
 			else:
-				self.report({"INFO"},"RE Asset thumbnails have not been rendered. Cannot retrieve.")
+				self.report({"INFO"},tr_report("RE Asset thumbnails have not been rendered. Cannot retrieve."))
 				return {'CANCELLED'}
 			
-		self.report({"INFO"},"Fetched RE Asset thumbnails.")
+		self.report({"INFO"},tr_report("Fetched RE Asset thumbnails."))
 		return {'FINISHED'}
 	def draw(self,context):
 		layout = self.layout
-		layout.label(text="Reload all new or changed asset thumbnails?")
+		layout.label(text=tr_iface("Reload all new or changed asset thumbnails?"))
 		layout.prop(self,"forceReload")
 	def invoke(self,context,event):
 		return context.window_manager.invoke_props_dialog(self)
@@ -745,10 +746,10 @@ class WM_OT_InitializeREAssetLibrary(Operator):
 			if gameName != None:
 				catalogPath = os.path.join(blendDir,f"REAssetCatalog_{gameName}.tsv")
 			else:
-				self.report({"ERROR"},"Game name not set.")
+				self.report({"ERROR"},tr_report("Game name not set."))
 				return {'CANCELLED'}
 			if not os.path.isfile(catalogPath):
-				self.report({"ERROR"},"REAssetCatalog_{gameName} catalog file missing. Cannot load.")
+				self.report({"ERROR"},tr_report("REAssetCatalog_{gameName} catalog file missing. Cannot load.", gameName=gameName))
 				return {'CANCELLED'}
 			bpy.context.scene["isREAssetLibrary"] = True
 			bpy.context.scene["REAssetLibrary_Game"] = gameName
@@ -766,7 +767,7 @@ class WM_OT_InitializeREAssetLibrary(Operator):
 			
 			bpy.ops.wm.save_userpref()
 			bpy.ops.wm.save_mainfile()
-			self.report({"INFO"},"Loaded RE Assets.")
+			self.report({"INFO"},tr_report("Loaded RE Assets."))
 		print("Finished initializing.")
 		return {'FINISHED'}
 	@classmethod
@@ -795,17 +796,17 @@ class WM_OT_ImportREAssetLibraryFromCatalog(Operator):
 			catalogPath = os.path.join(blendDir,f"REAssetCatalog_{gameName}.tsv")
 			gameInfoPath = os.path.join(blendDir,f"GameInfo_{gameName}.json")
 		else:
-			self.report({"ERROR"},"Game name not set in blend file.")
+			self.report({"ERROR"},tr_report("Game name not set in blend file."))
 			return {'CANCELLED'}
 		if not os.path.isfile(catalogPath):
-			self.report({"ERROR"},f"REAssetCatalog_{gameName}.tsv catalog file missing. Cannot load.")
+			self.report({"ERROR"},tr_report("REAssetCatalog_{gameName}.tsv catalog file missing. Cannot load.", gameName=gameName))
 			return {'CANCELLED'}
 		
 		if os.path.isfile(gameInfoPath):
 			gameInfo = loadGameInfo(gameInfoPath)
 				
 		else:
-			self.report({"ERROR"},f"GameInfo_{gameName}.json file missing. Cannot load.")
+			self.report({"ERROR"},tr_report("GameInfo_{gameName}.json file missing. Cannot load.", gameName=gameName))
 			return {'CANCELLED'}
 		
 		assetCollection = getCollection("RE Assets")
@@ -874,15 +875,15 @@ class WM_OT_ImportREAssetLibraryFromCatalog(Operator):
 				bpy.ops.asset.library_refresh()
 			#print(assetObj.asset_data.catalog_id)
 		#bpy.ops.re_asset.fetch_re_asset_thumbnails()
-		self.report({"INFO"},"Loaded RE Assets.")
+		self.report({"INFO"},tr_report("Loaded RE Assets."))
 		return {'FINISHED'}
 	@classmethod
 	def poll(self,context):
 		return bpy.context.scene is not None
 	def draw(self,context):
 		layout = self.layout
-		layout.label(text="Are you sure you want to reimport the catalog?")
-		layout.label(text="This will reset any unsaved names.")
+		layout.label(text=tr_iface("Are you sure you want to reimport the catalog?"))
+		layout.label(text=tr_iface("This will reset any unsaved names."))
 	def invoke(self,context,event):
 		return context.window_manager.invoke_props_dialog(self)
 
@@ -909,17 +910,17 @@ class WM_OT_SaveREAssetLibraryToCatalog(Operator):
 		if gameName != None:
 			catalogPath = os.path.join(blendDir,f"REAssetCatalog_{gameName}.tsv")
 		else:
-			self.report({"ERROR"},"Game name not set in blend file.")
+			self.report({"ERROR"},tr_report("Game name not set in blend file."))
 			return {'CANCELLED'}
 		if not os.path.isfile(catalogPath):
-			self.report({"ERROR"},f"REAssetCatalog_{gameName}.tsv catalog file missing. Cannot load.")
+			self.report({"ERROR"},tr_report("REAssetCatalog_{gameName}.tsv catalog file missing. Cannot load.", gameName=gameName))
 			return {'CANCELLED'}
 		
 		
 		bpy.ops.wm.save_mainfile()
 		
 		if not os.path.isfile(blender_assets_cats_path):
-			self.report({"ERROR"},f"blender_assets.cats.txt file missing. Cannot load.")
+			self.report({"ERROR"},tr_report("blender_assets.cats.txt catalog file missing. Cannot load."))
 			return {'CANCELLED'}
 			
 		
@@ -992,15 +993,15 @@ class WM_OT_SaveREAssetLibraryToCatalog(Operator):
 					outputFile.write(f"{filePath}\t{displayName}\t{category}\t{tagString}\t{platExt}\t{langExt}\n")
 						
 						
-		self.report({"INFO"},"Saved changes to RE Asset Catalog.")
+		self.report({"INFO"},tr_report("Saved changes to RE Asset Catalog."))
 		return {'FINISHED'}
 	@classmethod
 	def poll(self,context):
 		return bpy.context.scene is not None
 	def draw(self,context):
 		layout = self.layout
-		layout.label(text="Save changes made to RE Assets to catalog?")
-		layout.label(text="This will also save the current blend file.")
+		layout.label(text=tr_iface("Save changes made to RE Assets to catalog?"))
+		layout.label(text=tr_iface("This will also save the current blend file."))
 	def invoke(self,context,event):
 		return context.window_manager.invoke_props_dialog(self)
 
@@ -1060,14 +1061,14 @@ class WM_OT_ExportCatalogDiff(Operator):
 			packedAssetCatalogPath = os.path.join(blendDir,f"packedAssetCat_{gameName}.zst")
 			diffZipPath = os.path.join(blendDir,"Diff",f"Diff_REAssetCatalog_{gameName}_{timestamp}.zip")
 		else:
-			self.report({"ERROR"},"Game name not set in blend file.")
+			self.report({"ERROR"},tr_report("Game name not set in blend file."))
 			return {'CANCELLED'}
 		if not os.path.isfile(catalogPath):
-			self.report({"ERROR"},f"REAssetCatalog_{gameName}.tsv catalog file missing. Cannot load.")
+			self.report({"ERROR"},tr_report("REAssetCatalog_{gameName}.tsv catalog file missing. Cannot load.", gameName=gameName))
 			return {'CANCELLED'}
 		
 		if not os.path.isfile(packedAssetCatalogPath):
-			self.report({"ERROR"},f"packedAssetCat_{gameName}.zst catalog file missing. Cannot load.")
+			self.report({"ERROR"},tr_report("packedAssetCat_{gameName}.zst catalog file missing. Cannot load.", gameName=gameName))
 			return {'CANCELLED'}
 		
 		print("Saving catalog changes...")
@@ -1133,16 +1134,16 @@ class WM_OT_ExportCatalogDiff(Operator):
 				#desc = f"{changeCount} asset entries changed.\n\n(Don't forget to attach the generated diff zip file by dragging it into this box)",
 				#)
 				#bpy.ops.wm.url_open(url = githubURL)
-				self.report({"INFO"},"Generated Diff file.")
+				self.report({"INFO"},tr_report("Generated Diff file."))
 			else:
-				self.report({"INFO"},"No changes have been made to the asset library so a Diff file can't be generated.")
+				self.report({"INFO"},tr_report("No changes have been made to the asset library so a Diff file can't be generated."))
 		return {'FINISHED'}
 	@classmethod
 	def poll(self,context):
 		return bpy.context.scene is not None
 	def draw(self,context):
 		layout = self.layout
-		layout.label(text="This will generate a zip file containing all changes made.")
+		layout.label(text=tr_iface("This will generate a zip file containing all changes made."))
 	def invoke(self,context,event):
 		return context.window_manager.invoke_props_dialog(self)
 class WM_OT_ImportCatalogDiff(Operator):
@@ -1152,9 +1153,9 @@ class WM_OT_ImportCatalogDiff(Operator):
 	bl_options = {'INTERNAL'}
 	def execute(self, context):
 		if True:#TODO
-			self.report({"INFO"},"Imported RE Asset library changes.")
+			self.report({"INFO"},tr_report("Imported RE Asset library changes."))
 		else:
-			self.report({"ERROR"},"Failed to import RE Asset library changes.")
+			self.report({"ERROR"},tr_report("Failed to import RE Asset library changes."))
 		return {'FINISHED'}
 	@classmethod
 	def poll(self,context):
@@ -1175,21 +1176,21 @@ class WM_OT_PackageREAssetLibrary(Operator):
 			print(f"Game Name:{gameName}")
 			if zipLibrary(blendDir, gameName):
 				openFolder(blendDir)
-				self.report({"INFO"},"Packaged RE Asset library.")
+				self.report({"INFO"},tr_report("Packaged RE Asset library."))
 			else:
-				self.report({"ERROR"},"Failed to package RE Asset library. See console for details.")
+				self.report({"ERROR"},tr_report("Failed to package RE Asset library. See console for details."))
 		else:
-			self.report({"ERROR"},"This blend file is not an RE Asset Library. Cannot package.")
+			self.report({"ERROR"},tr_report("This blend file is not an RE Asset Library. Cannot package."))
 		return {'FINISHED'}
 	@classmethod
 	def poll(self,context):
 		return bpy.context.scene is not None
 	def draw(self,context):
 		layout = self.layout
-		layout.label(text="Package the library into an .reassetlib file?")
-		layout.label(text="This will overwrite packedAssetCat_XXXX.zst.")
-		layout.label(text="Any changes in the library are compared to this file.")
-		layout.label(text="Submit Changes To GitHub won't work as intended.")
+		layout.label(text=tr_iface("Package the library into an .reassetlib file?"))
+		layout.label(text=tr_iface("This will overwrite packedAssetCat_XXXX.zst."))
+		layout.label(text=tr_iface("Any changes in the library are compared to this file."))
+		layout.label(text=tr_iface("Submit Changes To GitHub won't work as intended."))
 	def invoke(self,context,event):
 		return context.window_manager.invoke_props_dialog(self)
 	
@@ -1247,17 +1248,17 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 					#bpy.ops.re_asset.fetch_re_asset_thumbnails()
 					
 					#bpy.ops.wm.save_mainfile()
-					self.report({"INFO"},"Updated RE Asset Library.")
+					self.report({"INFO"},tr_report("Updated RE Asset Library."))
 					try:
 						os.remove(outFilePath)
 					except:
 						pass
 				else:
 					print("CRC Check failed, aborting install.")
-					self.report({"INFO"},"Failed to update RE Asset Library, CRC check failed. Try downloading the asset library again.")
+					self.report({"INFO"},tr_report("Failed to update RE Asset Library, CRC check failed. Try downloading the asset library again."))
 					return {'CANCELLED'}
 		else:
-			self.report({"ERROR"},"Game is not on repository or repository is unreachable.")
+			self.report({"ERROR"},tr_report("Game is not on repository or repository is unreachable."))
 			return {'CANCELLED'}
 		return {'FINISHED'}
 	@classmethod
@@ -1312,7 +1313,7 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 		
 		if timestamp < self.timestamp:
 			self.updateIsAvailable = True
-			return context.window_manager.invoke_props_dialog(self,width = 400,confirm_text = "Update Asset Library")
+			return context.window_manager.invoke_props_dialog(self,width = 400,confirm_text = tr_iface("Update Asset Library"))
 		else:
 			print("No update available.")
 			return context.window_manager.invoke_popup(self)
@@ -1320,12 +1321,12 @@ class WM_OT_CheckForREAssetLibraryUpdate(Operator):
 	def draw(self,context):
 		layout = self.layout
 		if self.updateIsAvailable:
-			layout.label(text="An update is available.")
+			layout.label(text=tr_iface("An update is available."))
 			layout.label(text=self.releaseDescription)
-			layout.label(text=f"Update Date: {self.timestamp}")
+			layout.label(text=tr_iface("Update Date: {timestamp}", timestamp=self.timestamp))
 			layout.label(text = f"Download Size: {formatByteSize(int(self.downloadSize))}")
 		else:
-			layout.label(text="Asset library is up to date.")
+			layout.label(text=tr_iface("Asset library is up to date."))
 
 class WM_OT_OpenLibraryFolder(Operator):
 	bl_label = "Open Library Folder"
@@ -1365,10 +1366,10 @@ class WM_OT_GenerateMaterialCompendium(Operator):
 			else:
 				libPath = os.path.split(bpy.context.blend_data.filepath)[0]
 			generateMaterialCompendium(libPath,gameName)
-			self.report({"INFO"},"Generated Material Compendium.")
+			self.report({"INFO"},tr_report("Generated Material Compendium."))
 		except Exception as err:
 			print(err)
-			self.report({"ERROR"},"Could not generate compendium. See console. (Window > Toggle System Console)")
+			self.report({"ERROR"},tr_report("Could not generate compendium. See console. (Window > Toggle System Console)"))
 		return {'FINISHED'}
 	
 class WM_OT_GenerateRSZCRCCompendium(Operator):
@@ -1397,9 +1398,9 @@ class WM_OT_GenerateRSZCRCCompendium(Operator):
 			else:
 				libPath = os.path.split(bpy.context.blend_data.filepath)[0]
 			generateRSZCRCCompendium(libPath,gameName)
-			self.report({"INFO"},"Generated CRC Compendium.")
+			self.report({"INFO"},tr_report("Generated CRC Compendium."))
 		except Exception as err:
 			print(err)
-			self.report({"ERROR"},"Could not generate compendium. See console. (Window > Toggle System Console)")
+			self.report({"ERROR"},tr_report("Could not generate compendium. See console. (Window > Toggle System Console)"))
 		
 		return {'FINISHED'}

@@ -1,15 +1,17 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud",
-	"version": (0, 25, 1),
+	"version": (0, 25, 2),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
-	"wiki_url": "https://github.com/NSACloud/RE-Asset-Library",
-	"tracker_url": "",
+	"wiki_url": "https://github.com/yequ172672/RE-Asset-Library-5.2-CN/tree/feat/onimusha-wots",
+	"tracker_url": "https://github.com/yequ172672/RE-Asset-Library-5.2-CN/issues",
 	"category": "Import-Export"}
 
 import bpy
+from . import translations
+from .translations import tr_iface, tr_report
 from . import addon_updater_ops
 
 from bpy.app.handlers import persistent
@@ -223,12 +225,12 @@ class REAssetPreferences(AddonPreferences):
 		layout = self.layout
 		op = self.layout.operator(
         'wm.url_open',
-        text='Donate on Ko-fi',
+        text=tr_iface('Donate on Ko-fi'),
         icon='FUND'
         )
 		op.url = 'https://ko-fi.com/nsacloud'
 		
-		layout.label(text="RE Asset Libraries")
+		layout.label(text=tr_iface("RE Asset Libraries"))
 		layout.prop(self,"assetLibraryPath")
 		layout.operator("re_asset.open_re_asset_library_folder",icon = "FILE_FOLDER")
 		layout.row()
@@ -237,7 +239,7 @@ class REAssetPreferences(AddonPreferences):
 		layout.operator("re_asset.create_re_asset_library",icon = "NEWFOLDER")
 		
 		layout.row()
-		layout.label(text="New Asset Library File Type Whitelist")
+		layout.label(text=tr_iface("New Asset Library File Type Whitelist"))
 		layout.template_list("ASSET_UL_FileTypeWhiteList", "", self, "fileTypeWhiteList_items", self, "fileTypeWhiteList_index",rows = 4)
 		row = layout.row()
 		col = row.column()
@@ -245,7 +247,7 @@ class REAssetPreferences(AddonPreferences):
 		col = row.column()
 		col.operator("re_asset.delete_whitelist_item")
 		layout.operator("re_asset.reset_whitelist_items")
-		layout.label(text="Import Options")
+		layout.label(text=tr_iface("Import Options"))
 		layout.prop(self,"showMeshImportOptions")
 		layout.prop(self,"placeAtCursor")
 		#layout.prop(self,"instanceDuplicates")
@@ -286,17 +288,17 @@ class ImportREAssetLib(bpy.types.Operator, ImportHelper):
 						with subprocess.Popen([bpy.app.binary_path, outputBlendPath, "--python", scriptPath]):
 							pass#Wait for install to finish
 						
-						self.report({"INFO"},f"Installed {gameName} library.")
+						self.report({"INFO"},tr_report("Installed {gameName} library.", gameName=gameName))
 						
 						
 				else:
-					self.report({"ERROR"},"Missing files, cannot create library.")
+					self.report({"ERROR"},tr_report("Missing files, cannot create library."))
 					return {'CANCELLED'}
 				
 				#Update asset library list
 				bpy.ops.re_asset.detect_re_asset_library(silent = True)
 				return {"FINISHED"}
-		self.report({"INFO"},"Failed to import RE Asset Library. See Window > Toggle System Console for details")
+		self.report({"INFO"},tr_report("Failed to import RE Asset Library. See Window > Toggle System Console for details"))
 		return {"CANCELLED"}
 	
 def getAssetDirectoryItems(self,context):
@@ -349,11 +351,11 @@ class WM_OT_DownloadREAssetLibrary(Operator):
 						pass
 					
 					
-					self.report({"INFO"},f"Downloaded {entry.gameName} library. You can open the Asset Browser by going to File > New > RE Assets.")
+					self.report({"INFO"},tr_report("Downloaded {gameName} library. You can open the Asset Browser by going to File > New > RE Assets.", gameName=entry.gameName))
 					
 				else:
 					print("CRC Check failed, aborting install.")
-					self.report({"ERROR"},"CRC Check on the downloaded file failed. Try downloading the library again.")
+					self.report({"ERROR"},tr_report("CRC Check on the downloaded file failed. Try downloading the library again."))
 				
 		return {'FINISHED'}
 		
@@ -381,7 +383,7 @@ class WM_OT_DownloadREAssetLibrary(Operator):
 					item.compressedSize = str(entry["compressedSize"])
 					item.uncompressedSize = str(entry["uncompressedSize"])
 					item.URL = entry["URL"]
-			return context.window_manager.invoke_props_dialog(self,width = 400,confirm_text = "Download Asset Library")
+			return context.window_manager.invoke_props_dialog(self,width = 400,confirm_text = tr_iface("Download Asset Library"))
 		else:
 			return context.window_manager.invoke_popup(self)
 
@@ -390,23 +392,23 @@ class WM_OT_DownloadREAssetLibrary(Operator):
 		if len(self.assetLibList_items) != 0:
 			layout.prop(self,"libraryListEntry")
 		layout.separator()
-		layout.label(text="Info")
+		layout.label(text=tr_iface("Info"))
 		box = layout.box()
 		if len(self.assetLibList_items) != 0:
 			entry = self.assetLibList_items[int(self.libraryListEntry)]
-			box.label(text = f"Library Name: {entry.gameName}")
+			box.label(text = tr_iface("Library Name: {gameName}", gameName=entry.gameName))
 			
 			box.separator()
 			box.label(text = entry.releaseDescription)
-			box.label(text = f"Last Update: {entry.timestamp}")
+			box.label(text = tr_iface("Last Update: {timestamp}", timestamp=entry.timestamp))
 			
-			box.label(text = f"Download Size: {formatByteSize(int(entry.compressedSize))}")
-			box.label(text = f"Installed Size: {formatByteSize(int(entry.uncompressedSize))}")
+			box.label(text = tr_iface("Download Size: {size}", size=formatByteSize(int(entry.compressedSize))))
+			box.label(text = tr_iface("Installed Size: {size}", size=formatByteSize(int(entry.uncompressedSize))))
 			
-			layout.label(text="Blender will become unresponsive while downloading the library.",icon = "ERROR")
+			layout.label(text=tr_iface("Blender will become unresponsive while downloading the library."),icon = "ERROR")
 		else:
-			box.label(text = "Failed to retrieve available asset libraries.")
-			box.label(text = "Check your internet connection.")
+			box.label(text = tr_iface("Failed to retrieve available asset libraries."))
+			box.label(text = tr_iface("Check your internet connection."))
 class WM_OT_CreateNewREAssetLibrary(Operator):
 	bl_label = "Create New RE Asset Library"
 	bl_description = "Create a new asset library using an RETool .list file"
@@ -449,7 +451,7 @@ class WM_OT_CreateNewREAssetLibrary(Operator):
 		layout.prop(self,"listPath")
 		op = self.layout.operator(
         'wm.url_open',
-        text='Download List Files',
+        text=tr_iface('Download List Files'),
         icon='TEXT'
         )
 		
@@ -482,15 +484,15 @@ class WM_OT_CreateNewREAssetLibrary(Operator):
 				if os.path.isfile(outputCatalogPath) and os.path.isfile(outputGameInfoPath) and os.path.isfile(outputBlendPath) and os.path.isfile(scriptPath):
 					subprocess.Popen([bpy.app.binary_path, outputBlendPath, "--python", scriptPath])
 				else:
-					self.report({"ERROR"},"Missing files, cannot create library.")
+					self.report({"ERROR"},tr_report("Missing files, cannot create library."))
 					return {'CANCELLED'}
-					self.report({"INFO"},"Created new RE Asset Library.")
+					self.report({"INFO"},tr_report("Created new RE Asset Library."))
 				return {'FINISHED'}
-				self.report({"INFO"},"Created new RE Asset Library.")
+				self.report({"INFO"},tr_report("Created new RE Asset Library."))
 			#else:
 				#self.report({"ERROR"},"Invalid asset library path.")
 		else:
-			self.report({"ERROR"},"Invalid list path.")
+			self.report({"ERROR"},tr_report("Invalid list path."))
 		
 		return {'FINISHED'}
 	
@@ -514,7 +516,7 @@ class WM_OT_DetectREAssetLibrary(Operator):
 		
 		if not os.path.isdir(assetLibraryPath):
 			if not self.silent:
-				self.report({"ERROR"},"Invalid RE asset library path.")
+				self.report({"ERROR"},tr_report("Invalid RE asset library path."))
 			return {'CANCELLED'}
 		subDirectoryList = [ f.name for f in os.scandir(assetLibraryPath) if f.is_dir() ]
 		for directory in subDirectoryList:
@@ -529,7 +531,7 @@ class WM_OT_DetectREAssetLibrary(Operator):
 				bpy.context.preferences.filepaths.asset_libraries.remove(lib)
 		bpy.ops.wm.save_userpref()
 		if not self.silent:
-			self.report({"INFO"},"Refreshed RE Asset Library list.")
+			self.report({"INFO"},tr_report("Refreshed RE Asset Library list."))
 		return {'FINISHED'}
 	
 class WM_OT_OpenREAssetLibraryFolder(Operator):
@@ -557,12 +559,12 @@ class ASSETBROWSER_PT_REAssetToolPanel(Panel):
 		
 		layout = self.layout
 		libVersion = str(bl_info["version"][0])+"."+str(bl_info["version"][1])
-		layout.label(text=f"RE Asset Library V{libVersion}")
+		layout.label(text=tr_iface("RE Asset Library V{version}", version=libVersion))
 		
 		gameName = getGameNameFromAssetBrowser()
 		
 		if gameName != None:
-			layout.label(text = f"Library: {gameName}")
+			layout.label(text = tr_iface("Library: {gameName}", gameName=gameName))
 			layout.operator("re_asset.set_game_extract_paths",icon = "CURRENT_FILE")
 			layout.operator("re_asset.extract_game_files",icon = "DOCUMENTS")
 			layout.operator("re_asset.open_chunk_extract_folder",icon = "FOLDER_REDIRECT")
@@ -571,10 +573,10 @@ class ASSETBROWSER_PT_REAssetToolPanel(Panel):
 			
 		else:
 			layout.separator()
-			layout.label(text = f"No RE Asset library is selected.")
+			layout.label(text = tr_iface("No RE Asset library is selected."))
 			layout.operator("re_asset.download_re_asset_library",icon = "INTERNET")
 		layout.separator(type="LINE")
-		layout.label(text = "RE Asset Settings")
+		layout.label(text = tr_iface("RE Asset Settings"))
 		layout.prop(preferences,"showMeshImportOptions")
 		layout.prop(preferences,"placeAtCursor")
 		#layout.prop(self,"instanceDuplicates")#TODO
@@ -613,16 +615,16 @@ class WM_OT_OpenFileLocation(Operator):
 						realPath = wildCardFileSearch(glob.escape(os.path.join(chunkPath,filePath))+".*")
 						if realPath != None:
 							openFolder(os.path.split(realPath)[0])
-							self.report({"INFO"},"Opened file location.")
+							self.report({"INFO"},tr_report("Opened file location."))
 							break
 						
 					if realPath == None:
-						self.report({"ERROR"},"File not found. It might not be extracted.\nDrag it from the library into the 3D view to extract it.")
+						self.report({"ERROR"},tr_report("File not found. It might not be extracted.\nDrag it from the library into the 3D view to extract it."))
 				else:
-					self.report({"ERROR"},f"No chunk paths for {gameName} are present.")		
+					self.report({"ERROR"},tr_report("No chunk paths for {gameName} are present.", gameName=gameName))
 			
 			else:
-				self.report({"ERROR"},"Asset is not an RE Asset.")		
+				self.report({"ERROR"},tr_report("Asset is not an RE Asset."))
 		
 		return {'FINISHED'}
 	
@@ -723,7 +725,7 @@ def REAssetPostHandler(lapp_context):
 							try:
 								extractFilesFromPakCache(gameInfoPath,[],extractInfoPath,pakCachePath,extractDependencies = True,blenderAssetObj = item.id)
 							except Exception as err:
-								reportAssetImportError(f"Failed to extract {item.id.get('assetPath',item.id.name)}: {err}")
+								reportAssetImportError(tr_report("Failed to extract {assetPath}: {err}", assetPath=item.id.get('assetPath',item.id.name), err=err))
 								assetPath = None
 								extractionFailed = True
 							if not extractionFailed:
@@ -735,7 +737,7 @@ def REAssetPostHandler(lapp_context):
 										print(f"Found asset path")
 										break
 							if assetPath == None:
-								reportAssetImportError(item.id.get("assetPath",item.id.name)+" - File not found at any chunk paths. See console for details on how to fix this. (Window > Toggle System Console)")
+								reportAssetImportError(tr_report("{assetPath} - File not found at any chunk paths. See console for details on how to fix this. (Window > Toggle System Console)", assetPath=item.id.get("assetPath",item.id.name)))
 								print("\nIf this issue persists, try the following:")
 								print("1: Check for updates to the asset library addon in Edit > Preferences > Addons > RE Asset Library > Check now for re_asset_library update.")
 								print("2: Uninstall any mods installed with Fluffy Manager and validate game files on Steam.")
@@ -759,7 +761,7 @@ def REAssetPostHandler(lapp_context):
 						case "SKELETON":
 							pendingImport = lambda obj=asset_obj,path=str(assetPath),prefs=addonPreferences: importREFBXSkelAsset(obj,path,prefs)
 						case _:
-							reportAssetImportError(f"Unsupported asset type, cannot import {item.id.name} - {assetType}")
+							reportAssetImportError(tr_report("Unsupported asset type, cannot import {assetName} - {assetType}", assetName=item.id.name, assetType=assetType))
 					
 					
 			bpy.context.scene["lastREAsset"] = asset_obj
@@ -767,9 +769,9 @@ def REAssetPostHandler(lapp_context):
 				def queued_import(import_fn=pendingImport, description=pendingImportDescription):
 					try:
 						if import_fn() is False:
-							reportAssetImportError(f"Import failed for {description}")
+							reportAssetImportError(tr_report("Import failed for {description}", description=description))
 					except Exception as err:
-						reportAssetImportError(f"Import failed for {description}: {err}")
+							reportAssetImportError(tr_report("Import failed for {description}: {err}", description=description, err=err))
 				run_in_main_thread(queued_import)
 			if promptSetExtractInfo:
 				library_path = bpy.path.abspath(item.source_library.filepath)
@@ -838,6 +840,7 @@ def on_register():
 		bpy.ops.re_asset.reset_whitelist_items()
 	bpy.ops.re_asset.detect_re_asset_library(silent = True)#Save preferences on register, otherwise when a new blend file is opened, the addon might not be registered on the new instance.
 def register():
+	translations.register(__name__)
 	addon_updater_ops.register(bl_info)
 	for classEntry in classes:
 		bpy.utils.register_class(classEntry)
@@ -862,6 +865,7 @@ def register():
 		print(f"Failed to copy RE Asset workspace blend file {str(err)}")
 	
 def unregister():
+	translations.unregister(__name__)
 	addon_updater_ops.unregister()
 	for classEntry in classes:
 		bpy.utils.unregister_class(classEntry)

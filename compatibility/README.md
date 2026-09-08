@@ -3,11 +3,10 @@
 OWOTS support requires matching changes in the asset library, RE Mesh Editor and RE Chain Editor. This directory preserves the companion source changes so the asset library fork can be reproduced without relying on a particular local Blender installation.
 
 The adapted companion sources are also available in the user's forks on
-`feat/onimusha-wots`: [RE Mesh Editor](https://github.com/yequ172672/RE-Mesh-Editor/tree/feat/onimusha-wots)
-at `5614bda8112887b02dbc06d08ec940fad71825f4`, and
-[RE Chain Editor](https://github.com/yequ172672/RE-Chain-Editor/tree/feat/onimusha-wots)
-at `d9fdf358a1fd1dfab7a7d5f452cba964804ac86f`. These already include the
-runtime patches below; do not apply the patches again to these branches.
+`feat/onimusha-wots`: [RE Mesh Editor](https://github.com/yequ172672/RE-Mesh-Editor-5.2-CN/tree/feat/onimusha-wots)
+and [RE Chain Editor](https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/tree/feat/onimusha-wots).
+These maintained branches include OWOTS compatibility and Simplified Chinese
+localization. Do not apply the patches again to these branches.
 
 | Patch | Upstream repository | Base commit |
 | --- | --- | --- |
@@ -23,7 +22,7 @@ git -C RE-Chain-Editor-main apply --check ../RE-Asset-Library-cn/compatibility/r
 git -C RE-Chain-Editor-main apply ../RE-Asset-Library-cn/compatibility/re-chain-editor-owots.patch
 ```
 
-The patches retain the original editor architecture and licenses. They add OWOTS mesh/material/texture handling, Chain2 17, and the Geometry Nodes modifier input API required by Blender 5.2. They do not add game assets.
+The patches retain the original editor architecture and licenses. They add OWOTS mesh/material/texture handling, Chain2 17, the Geometry Nodes modifier input API required by Blender 5.2, and Chinese UI translation registration. They do not add game assets.
 
 Build installable ZIP files with `tools/package_addons.ps1` in the asset library repository. Pass the three source directories and a separate output directory. Install all three ZIP files in Blender 5.2; the ZIP roots retain the original add-on module names so existing settings can be reused.
 

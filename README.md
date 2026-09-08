@@ -1,3 +1,13 @@
+# RE-Asset-Library-5.2-CN
+
+本分叉提供 Blender 5.2 下的 Onimusha: Way of the Sword 适配与简体中文界面。维护代码位于 [`feat/onimusha-wots`](https://github.com/yequ172672/RE-Asset-Library-5.2-CN/tree/feat/onimusha-wots) 分支；`main` 保留上游版本。
+
+在 Blender「编辑 → 偏好设置 → 界面 → 翻译」中选择简体中文，并启用界面和工具提示翻译。插件会随 Blender 语言切换，英文环境仍显示英文；文件格式标识、游戏代号和操作符接口保持原样。
+
+建议安装打包后的 `RE-Asset-Library-5.2-CN.zip`。ZIP 内保留 `RE-Asset-Library-main` 模块目录，以兼容已有插件设置；安装新版时替换同名旧插件，避免同时启用多个副本。
+
+---
+
 # 本分叉：Onimusha: Way of the Sword / Blender 5.2
 
 本分叉继续维护《鬼武者：Way of the Sword》的资源库适配，游戏标识为 `OWOTS`，与 `ONI2`（鬼武者 2）不同。适配以 Blender 5.2 为验收基线。

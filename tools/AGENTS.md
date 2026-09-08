@@ -5,6 +5,7 @@
 | Path | Purpose |
 | --- | --- |
 | `headless_validate.py` | Runs isolated Blender registration, enum, catalog generation, and optional mesh import checks. |
+| `validate_localization.py` | Enables all three add-ons twice in isolated Blender, checking Chinese translations, English fallback and unregistration. |
 | `package_addons.ps1` | Creates installable Asset/Mesh/Chain ZIPs with development-only files excluded. |
 | `build_local_library.py` | Builds a local catalog, placeholder blend, ExtractInfo, and PAK cache without writing user preferences or game files. |
 | `migrate_asset_library_catalog.py` | Rewrites an existing catalog's automatic categories to resource-directory paths while preserving manual rows and non-category fields. |
@@ -28,6 +29,7 @@
 - Strict material validation automatically forces texture cache reload; `--reload-cached-textures` can also be supplied explicitly. Conversion errors and bounds failures from importer output are treated as errors.
 - The report lists every file-backed image's name, path, width, and height. Pair repeatable `--require-texture-pattern` with `--require-texture-min-size WIDTH HEIGHT` to enforce a real source resolution during strict material validation.
 - Run `package_addons.ps1` with explicit source and output paths; it preserves each add-on's canonical internal directory name, excludes generated TextureCache/TEMP/_validation and updater directories, and writes `package_manifest.json` beside the ZIPs.
+- Package filenames use the fork's `-5.2-CN.zip` suffix while internal add-on module directories retain `-main` for preference compatibility.
 - Run `build_local_library.py` inside Blender with explicit add-on, list, executable, and output paths; it creates an empty extraction root and only indexes the game PAKs.
 - `build_local_library.py` also requires explicit mesh/chain add-ons and an extraction directory; it enables add-ons only in the isolated Blender process, never calls `save_userpref`, and validates placeholder paths against the generated catalog.
 - `migrate_asset_library_catalog.py` writes to a separate output TSV. Back up the library outside its scan directory before replacing the original, then run the printed PowerShell Blender command.

@@ -5,6 +5,7 @@ import os
 from bpy.types import Operator
 
 from ..blender_utils import showMessageBox
+from ...translations import tr_iface, tr_report
 from .re_mdf_updater_utils import batchUpdateMDFFiles,batchUpdateMDFCollections
 
 
@@ -69,14 +70,14 @@ class WM_OT_BatchMDFUpdater(Operator):
 					bpy.ops.wm.console_toggle()
 				except:
 					 pass
-				showMessageBox(f"Updated {updateCount} MDF files.",title="MDF Updater")
-				self.report({"INFO"},"Finished updating MDF files.")
+				showMessageBox(tr_iface("Updated {count} MDF files.", count=updateCount),title=tr_iface("MDF Updater"))
+				self.report({"INFO"},tr_report("Finished updating MDF files."))
 			else:#If extract paths aren't set, prompt to set them
 				bpy.ops.re_asset.prompt_extract_info("INVOKE_DEFAULT",libraryPath = blendPath)
-				self.report({"INFO"},"Cancelled MDF update. Run it again once extract paths are set.")
+				self.report({"INFO"},tr_report("Cancelled MDF update. Run it again once extract paths are set."))
 				return {'CANCELLED'}
 		else:
-			showMessageBox(f"An asset library with MDF updater support must be chosen and a mod directory must be set.",title="MDF Updater")
+			showMessageBox(tr_iface("An asset library with MDF updater support must be chosen and a mod directory must be set."),title=tr_iface("MDF Updater"))
 			return {'CANCELLED'}
 		return {'FINISHED'}
 	@classmethod
@@ -91,7 +92,7 @@ class WM_OT_BatchMDFUpdater(Operator):
 		if "modWorkspace_directory" in bpy.context.scene:
 			self.dirPath = bpy.context.scene["modWorkspace_directory"]
 		
-		return context.window_manager.invoke_props_dialog(self,width = 500,confirm_text = "Update MDF Files")
+		return context.window_manager.invoke_props_dialog(self,width = 500,confirm_text = tr_iface("Update MDF Files"))
 
 	
 	def draw(self,context):
@@ -139,14 +140,14 @@ class WM_OT_BlenderMDFUpdater(Operator):
 					bpy.ops.wm.console_toggle()
 				except:
 					 pass
-				showMessageBox(f"Updated {updateCount} MDF collections.",title="MDF Updater")
-				self.report({"INFO"},"Finished updating MDF collections.")
+				showMessageBox(tr_iface("Updated {count} MDF collections.", count=updateCount),title=tr_iface("MDF Updater"))
+				self.report({"INFO"},tr_report("Finished updating MDF collections."))
 			else:#If extract paths aren't set, prompt to set them
 				bpy.ops.re_asset.prompt_extract_info("INVOKE_DEFAULT",libraryPath = blendPath)
-				self.report({"INFO"},"Cancelled MDF update. Run it again once extract paths are set.")
+				self.report({"INFO"},tr_report("Cancelled MDF update. Run it again once extract paths are set."))
 				return {'CANCELLED'}
 		else:
-			showMessageBox(f"An asset library with MDF updater support must be chosen.",title="MDF Updater")
+			showMessageBox(tr_iface("An asset library with MDF updater support must be chosen."),title=tr_iface("MDF Updater"))
 			return {'CANCELLED'}
 		return {'FINISHED'}
 	@classmethod
@@ -158,7 +159,7 @@ class WM_OT_BlenderMDFUpdater(Operator):
 		centerX = region.width // 2
 		centerY = region.height
 		context.window.cursor_warp(centerX,centerY)
-		return context.window_manager.invoke_props_dialog(self,width = 500,confirm_text = "Update MDF Collections")
+		return context.window_manager.invoke_props_dialog(self,width = 500,confirm_text = tr_iface("Update MDF Collections"))
 
 	
 	def draw(self,context):
@@ -167,5 +168,4 @@ class WM_OT_BlenderMDFUpdater(Operator):
 			layout.label(text="Update MDF collections in Blender for the latest game version.")
 			layout.prop(self,"assetLib")
 		else:
-			layout.label(f"No asset libraries that support this feature are installed.",icon = "ERROR")
-			
+			layout.label(tr_iface("No asset libraries that support this feature are installed."),icon = "ERROR")

@@ -4,6 +4,7 @@
 | File | Purpose |
 | --- | --- |
 | `__init__.py` | Blender add-on registration, preferences, game selection and asset import dispatch |
+| `translations.py` | Blender 5.2 Simplified Chinese translation registry and context-aware UI/report helpers |
 | `README.md` | Installation and user documentation |
 | `addon_updater.py` | Upstream update implementation |
 | `addon_updater_ops.py` | Blender integration for the updater |
@@ -33,6 +34,8 @@
 
 ## Common Patterns
 - Use `OWOTS` for Onimusha: Way of the Sword. `ONI2` identifies a different game.
+- Keep Chinese UI text in `translations.py`; preserve operator IDs, RNA property names, file extensions and game identifiers in source/data.
+- Register both `zh_HANS` and the `zh_CN` compatibility alias through `bpy.app.translations`; use context-aware helpers for dynamic labels and reports.
 - Keep GameInfo, asset catalog paths, extraction caches and dependency editor game identifiers consistent.
 - Validate PAK decoding through both direct and cached/batch extraction. A readable index does not prove correct resource extraction.
 - Shared extension numbers do not guarantee identical layouts: WotS has a distinct MDF 51 variant.

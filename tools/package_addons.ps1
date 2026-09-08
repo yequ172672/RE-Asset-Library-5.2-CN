@@ -116,9 +116,9 @@ $resolvedOutput = [System.IO.Path]::GetFullPath($OutputDir)
 New-Item -ItemType Directory -Force -Path $resolvedOutput | Out-Null
 
 $packages = @(
-    New-AddonZip -Source $AssetSource -InternalRoot "RE-Asset-Library-main" -ZipPath (Join-Path $resolvedOutput "RE-Asset-Library-main.zip")
-    New-AddonZip -Source $MeshSource -InternalRoot "RE-Mesh-Editor-main" -ZipPath (Join-Path $resolvedOutput "RE-Mesh-Editor-main.zip")
-    New-AddonZip -Source $ChainSource -InternalRoot "RE-Chain-Editor-main" -ZipPath (Join-Path $resolvedOutput "RE-Chain-Editor-main.zip")
+    New-AddonZip -Source $AssetSource -InternalRoot "RE-Asset-Library-main" -ZipPath (Join-Path $resolvedOutput "RE-Asset-Library-5.2-CN.zip")
+    New-AddonZip -Source $MeshSource -InternalRoot "RE-Mesh-Editor-main" -ZipPath (Join-Path $resolvedOutput "RE-Mesh-Editor-5.2-CN.zip")
+    New-AddonZip -Source $ChainSource -InternalRoot "RE-Chain-Editor-main" -ZipPath (Join-Path $resolvedOutput "RE-Chain-Editor-5.2-CN.zip")
 )
 
 $manifest = [PSCustomObject]@{

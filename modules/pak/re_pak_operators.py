@@ -7,6 +7,7 @@ from pathlib import Path
 from bpy.types import Operator,OperatorFileListElement
 from bpy_extras.io_utils import ImportHelper
 from ..blender_utils import showMessageBox
+from ...translations import tr_iface, tr_report
 from ..asset.re_asset_utils import getFileCRC,loadREAssetCatalogFile,buildNativesPathFromCatalogEntry
 from ..asset.blender_re_asset import addChunkPath
 from ..asset.re_asset_operators import getAssetBlendPathFromAssetBrowser
@@ -41,18 +42,18 @@ class WM_OT_PromptSetExtractInfo(Operator):
 	def invoke(self, context, event):
 		
 		if self.libraryPath != "":
-			return context.window_manager.invoke_props_dialog(self,width = 600,confirm_text = "Set Game Extract Paths")
+			return context.window_manager.invoke_props_dialog(self,width = 600,confirm_text = tr_iface("Set Game Extract Paths"))
 
 	
 	def draw(self,context):
 		layout = self.layout
 		if self.libraryPath != "":
 			if not self.useAltPrompt:
-				layout.label(text="The file was not found on your system.")
-				layout.label(text=f"Would you like to set up automatic game file extraction?")
+				layout.label(text=tr_iface("The file was not found on your system."))
+				layout.label(text=tr_iface("Would you like to set up automatic game file extraction?"))
 			else:
-				layout.label(text="This feature requires the game extract paths to be set.")
-				layout.label(text=f"Set the extraction paths now?")
+				layout.label(text=tr_iface("This feature requires the game extract paths to be set."))
+				layout.label(text=tr_iface("Set the extraction paths now?"))
 
 
 def update_exePath(self, context):
@@ -161,16 +162,16 @@ class WM_OT_SetExtractInfo(Operator):
 					if not os.path.isfile(os.path.join(libDir,"PakSizeInfo_{gameName}.json")):
 						print("\nCalculating pak sizes...")
 						getGamePakSize(libDir,gameName)
-					showMessageBox("Game extraction set up completed.",title="Set Game Extract Paths")
+					showMessageBox(tr_iface("Game extraction set up completed."),title=tr_iface("Set Game Extract Paths"))
 					
 				else:
 					print("No pak files were found in game directory. Cannot continue.")
-				self.report({"INFO"},"Set game extract paths.")
+				self.report({"INFO"},tr_report("Set game extract paths."))
 			else:
-				self.report({"ERROR"},"EXE or extract path is invalid.")
+				self.report({"ERROR"},tr_report("EXE or extract path is invalid."))
 			
 		else:
-			self.report({"ERROR"},"Invalid library path. Could not set extract paths.")
+			self.report({"ERROR"},tr_report("Invalid library path. Could not set extract paths."))
 		return {'FINISHED'}
 	@classmethod
 	def poll(self,context):
@@ -218,9 +219,9 @@ class WM_OT_SetExtractInfo(Operator):
 		if len(self.extractPath) > 70:
 			row.alert = True
 			row.prop(self,"extractPath")
-			layout.label(text="Extract path is very long.",icon = "ERROR")
-			layout.label(text="File paths may exceed the max length of 255 characters and fail to extract.")
-			layout.label(text="Consider changing this to a shorter path such as C:\EXTRACT.")
+			layout.label(text=tr_iface("Extract path is very long."),icon = "ERROR")
+			layout.label(text=tr_iface("File paths may exceed the max length of 255 characters and fail to extract."))
+			layout.label(text=tr_iface("Consider changing this to a shorter path such as C:\\EXTRACT."))
 		else:
 			row.prop(self,"extractPath")
 		layout.prop(self,"platform")
@@ -440,7 +441,7 @@ class WM_OT_ExtractGameFiles(Operator):
 		except:
 			 pass
 		showMessageBox("Extracted game files.",title = "Extract Game Files")
-		self.report({"INFO"},"Extracted game files.")
+		self.report({"INFO"},tr_report("Extracted game files."))
 		return {'FINISHED'}
 	@classmethod
 	def poll(self,context):
@@ -487,7 +488,7 @@ class WM_OT_ExtractGameFiles(Operator):
 			#TODO
 			
 		else:
-			self.report({"ERROR"},"Extract paths are not set.")
+			self.report({"ERROR"},tr_report("Extract paths are not set."))
 			return {'CANCELLED'}
 		
 		self.gameInfoPath = os.path.join(blendDir,f"GameInfo_{gameName}.json")
@@ -543,14 +544,14 @@ class WM_OT_ExtractGameFiles(Operator):
 			self.totalSpaceRequired = str(totalSize)
 				
 		else:
-			self.report({"ERROR"},"Asset catalog missing.")
+			self.report({"ERROR"},tr_report("Asset catalog missing."))
 			return {'CANCELLED'}
 		
 		
 		#Move cursor to center so extract window is at the center of the window
 		context.window.cursor_warp(centerX,centerY)
 	
-		return context.window_manager.invoke_props_dialog(self,width = EXTRACT_WINDOW_SIZE,confirm_text = "Extract Game Files")
+		return context.window_manager.invoke_props_dialog(self,width = EXTRACT_WINDOW_SIZE,confirm_text = tr_iface("Extract Game Files"))
 
 	
 	def draw(self,context):
@@ -559,7 +560,7 @@ class WM_OT_ExtractGameFiles(Operator):
 		rowCount = 12
 		uifontscale = 9 * context.preferences.view.ui_scale
 		max_label_width = int((EXTRACT_WINDOW_SIZE*(1-SPLIT_FACTOR)*(2-SPLIT_FACTOR)) // uifontscale)
-		layout.label(text=f"Game: {self.gameName}")
+		layout.label(text=tr_iface("Game: {gameName}", gameName=self.gameName))
 		split = layout.split(factor = SPLIT_FACTOR)#Indent list slightly to make it more clear it's a part of a sub panel
 		col1 = split.column()
 		col2 = split.column()
@@ -601,13 +602,13 @@ class WM_OT_ExtractGameFiles(Operator):
 		layout.separator()
 		#layout.prop(self,"skipUnknowns")#Hidden since it doesn't work as intended
 		if self.gameName == "RE9" or self.gameName == "PRAG" or self.gameName == "MHS3":
-			layout.label(icon="ERROR", text = "NOTE: Audio and video files currently do not extract correctly for this game.")
+			layout.label(icon="ERROR", text = tr_iface("NOTE: Audio and video files currently do not extract correctly for this game."))
 			
 		row = layout.row()
 		row.alignment = "LEFT"
 		row.label(text = f"Approximate Total Required Storage Space: {formatByteSize(int(self.totalSpaceRequired))}")
 		row.prop(self,"recalcPakSize",icon="FILE_REFRESH", icon_only=True)
-		layout.label(text = f"Size is calculated based on the size reported by the game files which isn't always accurate. The actual amount may be less.")
+		layout.label(text = tr_iface("Size is calculated based on the size reported by the game files which isn't always accurate. The actual amount may be less."))
 		layout.prop(self,"openExtractFolder")
 class WM_OT_OpenExtractFolder(Operator):
 	bl_label = "Open Extract Folder"
@@ -646,7 +647,7 @@ class WM_OT_OpenExtractFolder(Operator):
 			#TODO
 			
 		else:
-			self.report({"ERROR"},"Game files are not extracted.")
+			self.report({"ERROR"},tr_report("Game files are not extracted."))
 		return {'FINISHED'}
 	
 class WM_OT_ReloadPakCache(Operator):
@@ -683,16 +684,16 @@ class WM_OT_ReloadPakCache(Operator):
 							createPakCacheFile(pakPriorityList,pakCachePath)
 							print("Calculating pak sizes...")
 							getGamePakSize(blendDir,gameName)
-							self.report({"INFO"},"Reloaded cached pak info.")
+							self.report({"INFO"},tr_report("Reloaded cached pak info."))
 						else:
-							self.report({"ERROR"},"No pak files found in game directory.")
+							self.report({"ERROR"},tr_report("No pak files found in game directory."))
 						
 						
 			except:
 				raise Exception(f"Failed to load {extractInfoPath}")
 			
 		else:
-			self.report({"ERROR"},"Game file extraction is not set up.")
+			self.report({"ERROR"},tr_report("Game file extraction is not set up."))
 		return {'FINISHED'}
 def update_pakDir(self, context):
 	if os.path.isdir(bpy.path.abspath(self.pakDir)):
@@ -740,7 +741,7 @@ class WM_OT_CreatePakPatch(Operator):
 					 pass
 				createPakPatch(pakDir,outPath)
 			except:
-				self.report({"ERROR"},"Failed to create patch pak. See Window > Toggle System Console")
+				self.report({"ERROR"},tr_report("Failed to create patch pak. See Window > Toggle System Console"))
 			try: 
 				bpy.ops.wm.console_toggle()
 			except:
@@ -752,11 +753,11 @@ class WM_OT_CreatePakPatch(Operator):
 					except:
 						pass
 				bpy.context.scene["lastExportedPatchPak"] = outPath
-				self.report({"INFO"},"Created pak patch.")
+				self.report({"INFO"},tr_report("Created pak patch."))
 			else:
-				self.report({"ERROR"},"Failed to create patch pak. See Window > Toggle System Console")
+				self.report({"ERROR"},tr_report("Failed to create patch pak. See Window > Toggle System Console"))
 		else:
-			self.report({"ERROR"},"Mod directory or output pak path is invalid.")
+			self.report({"ERROR"},tr_report("Mod directory or output pak path is invalid."))
 			
 		return {'FINISHED'}
 	@classmethod
@@ -828,11 +829,11 @@ class WM_OT_UnpackModPak(bpy.types.Operator, ImportHelper):
 	def draw(self, context):
 		layout = self.layout
 		layout.prop(self,"assetLib")
-		layout.label(text = "Loose Files Directory (Optional)")
+		layout.label(text = tr_iface("Loose Files Directory (Optional)"))
 		layout.prop(self,"looseFilesPath")
-		layout.label(text = "Output Directory (Optional)")
+		layout.label(text = tr_iface("Output Directory (Optional)"))
 		layout.prop(self,"outputPath")
-		layout.label(icon="ERROR",text = "Large pak files may be slow")
+		layout.label(icon="ERROR",text = tr_iface("Large pak files may be slow"))
 	def invoke(self, context, event):
 		
 		context.window_manager.fileselect_add(self)
@@ -869,9 +870,9 @@ class WM_OT_UnpackModPak(bpy.types.Operator, ImportHelper):
 			except:
 				 pass
 			
-			self.report({"INFO"},"Finished pak extraction. Do not reupload any mod without the original author's permission!")
+			self.report({"INFO"},tr_report("Finished pak extraction. Do not reupload any mod without the original author's permission!"))
 		else:
-			showMessageBox(f"The asset library must be set to the game you're extracting from.",title="Unpack Mod Pak")
+			showMessageBox(tr_iface("The asset library must be set to the game you're extracting from."),title=tr_iface("Unpack Mod Pak"))
 			return {'CANCELLED'}
 		return {'FINISHED'}
 	

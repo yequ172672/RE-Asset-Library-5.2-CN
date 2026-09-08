@@ -2,10 +2,13 @@
 import bpy
 
 from .gen_functions import textColors
+from ..translations import tr_iface
 import os
 from collections import OrderedDict
 from itertools import repeat
 def showMessageBox(message = "", title = "Message Box", icon = 'INFO'):
+	message = tr_iface(message)
+	title = tr_iface(title)
 
 	def draw(self, context):
 		self.layout.label(text = message)

@@ -1,26 +1,33 @@
-diff --git a/.gitignore b/.gitignore
-index 7e99e36..5282bd6 100644
---- a/.gitignore
-+++ b/.gitignore
-@@ -1 +1,2 @@
--*.pyc
-\ No newline at end of file
-+*.pyc
-+*_updater/
 diff --git a/__init__.py b/__init__.py
-index 26200ca..e388de2 100644
+index 26200ca..8d19806 100644
 --- a/__init__.py
 +++ b/__init__.py
-@@ -1,7 +1,7 @@
+@@ -1,13 +1,13 @@
  bl_info = {
  	"name": "RE Chain Editor",
  	"author": "NSA Cloud, alphaZomega",
 -	"version": (14, 0),
-+	"version": (14, 0, 1),
++	"version": (14, 0, 2),
  	"blender": (3, 1, 2),
  	"location": "File > Import-Export",
  	"description": "Import and export RE Engine chain files.",
-@@ -132,7 +132,7 @@ class ImportREChain(bpy.types.Operator, ImportHelper):
+ 	"warning": "",
+-	"wiki_url": "https://github.com/NSACloud/RE-Chain-Editor",
+-	"tracker_url": "https://github.com/NSACloud/RE-Chain-Editor/issues",
++	"wiki_url": "https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/tree/feat/onimusha-wots",
++	"tracker_url": "https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/issues",
+ 	"category": "Import-Export"}
+ 
+ #Modified by alphaZomega to support RE2R, RE3R, RE8, RE2-3-7 RT, DMC5 and SF6 
+@@ -29,6 +29,7 @@ from .modules.ui_re_chain_panels import OBJECT_PT_ChainObjectModePanel,OBJECT_PT
+ from .modules.re_chain_operators import WM_OT_ChainFromBone,WM_OT_CollisionFromBones,WM_OT_AlignChainsToBones,WM_OT_AlignFrames,WM_OT_PointFrame,WM_OT_CopyChainProperties,WM_OT_PasteChainProperties,WM_OT_NewChainHeader,WM_OT_ApplyChainSettingsPreset,WM_OT_NewChainSettings,WM_OT_NewWindSettings,WM_OT_NewChainJiggle,WM_OT_ApplyChainGroupPreset,WM_OT_ApplyChainNodePreset,WM_OT_ApplyWindSettingsPreset,WM_OT_SavePreset,WM_OT_OpenPresetFolder,WM_OT_NewChainLink,WM_OT_CreateChainBoneGroup,WM_OT_SwitchToPoseMode,WM_OT_SwitchToObjectMode,WM_OT_HideNonNodes,WM_OT_HideNonAngleLimits,WM_OT_HideNonCollisions,WM_OT_UnhideAll,WM_OT_RenameBoneChain,WM_OT_ApplyAngleLimitRamp,WM_OT_AlignBoneTailsToAxis,WM_OT_SetAttrFlags,WM_OT_SetNodeAttrFlags,WM_OT_SetSettingAttrFlags,WM_OT_SetJiggleAttrFlags,WM_OT_CreateChainLinkCollision,WM_OT_CreateChainSubGroup,WM_OT_SetCFILPath
+ 
+ from .modules.blender_re_clsp import importCLSPFile,exportCLSPFile
++from .translations import register as register_translations, unregister as unregister_translations, report as translate_report
+ 
+ class REChainPreferences(AddonPreferences):
+ 	bl_idname = __name__
+@@ -132,18 +133,18 @@ class ImportREChain(bpy.types.Operator, ImportHelper):
  		layout.prop_search(self, "targetArmature",bpy.data,"armatures")
  		layout.label(text = "Merge With Chain Collection:")
  		layout.prop_search(self, "mergeChain",bpy.data,"collections",icon = "COLLECTION_COLOR_02")
@@ -29,7 +36,20 @@ index 26200ca..e388de2 100644
  	def execute(self, context):
  		options = {"targetArmature":self.targetArmature,"mergeChain":self.mergeChain,"importUnknowns":self.importUnknowns}
  		editorVersion = str(bl_info["version"][0])+"."+str(bl_info["version"][1])
-@@ -167,8 +167,8 @@ class ImportREChain(bpy.types.Operator, ImportHelper):
+ 		print(f"\n{textColors.BOLD}RE Chain Editor V{editorVersion}{textColors.ENDC}")
+ 		print(f"Blender Version {bpy.app.version[0]}.{bpy.app.version[1]}.{bpy.app.version[2]}")
+-		print("https://github.com/NSACloud/RE-Chain-Editor")
++		print("https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/tree/feat/onimusha-wots")
+ 		success = importChainFile(self.filepath,options,isChain2=False)
+ 		if success:
+ 			return {"FINISHED"}
+ 		else:
+-			self.report({"INFO"},"Failed to import RE Chain. Make sure the mesh file is imported.")
++			self.report({"INFO"},translate_report("Failed to import RE Chain. Make sure the mesh file is imported."))
+ 			return {"CANCELLED"}
+ 	def invoke(self, context, event):
+ 		armatureObj = None
+@@ -167,8 +168,8 @@ class ImportREChain(bpy.types.Operator, ImportHelper):
  		context.window_manager.fileselect_add(self)
  		return {'RUNNING_MODAL'}
  
@@ -40,13 +60,148 @@ index 26200ca..e388de2 100644
  def update_targetChainCollection(self,context):
  	temp = bpy.data.screens.get("temp")
  	browserSpace = None
-@@ -792,4 +792,4 @@ def unregister():
+@@ -236,18 +237,18 @@ class ExportREChain(bpy.types.Operator, ExportHelper):
+ 		try:
+ 			chainVersion = int(os.path.splitext(self.filepath)[1].replace(".",""))
+ 		except:
+-			self.report({"INFO"},"Chain file path is missing number extension. Cannot export.")
++			self.report({"INFO"},translate_report("Chain file path is missing number extension. Cannot export."))
+ 			return{"CANCELLED"}
+ 		editorVersion = str(bl_info["version"][0])+"."+str(bl_info["version"][1])
+ 		print(f"\n{textColors.BOLD}RE Chain Editor V{editorVersion}{textColors.ENDC}")
+ 		print(f"Blender Version {bpy.app.version[0]}.{bpy.app.version[1]}.{bpy.app.version[2]}")
+-		print("https://github.com/NSACloud/RE-Chain-Editor")
++		print("https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/tree/feat/onimusha-wots")
+ 		success = exportChainFile(self.filepath,options, chainVersion)
+ 		if success:
+-			self.report({"INFO"},"Exported RE Chain successfully.")
++			self.report({"INFO"},translate_report("Exported RE Chain successfully."))
+ 			bpy.data.collections[self.targetCollection]["BatchExport_path"] = self.filepath
+ 		else:
+-			self.report({"INFO"},"RE Chain export failed. See Window > Toggle System Console for details.")
++			self.report({"INFO"},translate_report("RE Chain export failed. See Window > Toggle System Console for details."))
+ 		return {"FINISHED"}
+ 
+ 
+@@ -298,12 +299,12 @@ class ImportRECLSP(bpy.types.Operator, ImportHelper):
+ 		editorVersion = str(bl_info["version"][0])+"."+str(bl_info["version"][1])
+ 		print(f"\n{textColors.BOLD}RE Chain Editor V{editorVersion}{textColors.ENDC}")
+ 		print(f"Blender Version {bpy.app.version[0]}.{bpy.app.version[1]}.{bpy.app.version[2]}")
+-		print("https://github.com/NSACloud/RE-Chain-Editor")
++		print("https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/tree/feat/onimusha-wots")
+ 		success = importCLSPFile(self.filepath,options)
+ 		if success:
+ 			return {"FINISHED"}
+ 		else:
+-			self.report({"INFO"},"Failed to import RE CLSP. Make sure the armature for the mesh is imported.")
++			self.report({"INFO"},translate_report("Failed to import RE CLSP. Make sure the armature for the mesh is imported."))
+ 			return {"CANCELLED"}
+ 
+ supportedCLSPVersions = set([3])
+@@ -365,18 +366,18 @@ class ExportRECLSP(bpy.types.Operator, ExportHelper):
+ 		try:
+ 			clspVersion = int(os.path.splitext(self.filepath)[1].replace(".",""))
+ 		except:
+-			self.report({"INFO"},"CLSP file path is missing number extension. Cannot export.")
++			self.report({"INFO"},translate_report("CLSP file path is missing number extension. Cannot export."))
+ 			return{"CANCELLED"}
+ 		editorVersion = str(bl_info["version"][0])+"."+str(bl_info["version"][1])
+ 		print(f"\n{textColors.BOLD}RE Chain Editor V{editorVersion}{textColors.ENDC}")
+ 		print(f"Blender Version {bpy.app.version[0]}.{bpy.app.version[1]}.{bpy.app.version[2]}")
+-		print("https://github.com/NSACloud/RE-Chain-Editor")
++		print("https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/tree/feat/onimusha-wots")
+ 		success = exportCLSPFile(self.filepath,options, clspVersion)
+ 		if success:
+-			self.report({"INFO"},"Exported RE CLSP successfully.")
++			self.report({"INFO"},translate_report("Exported RE CLSP successfully."))
+ 			bpy.data.collections[self.targetCollection]["BatchExport_path"] = self.filepath
+ 		else:
+-			self.report({"INFO"},"RE CLSP export failed. See Window > Toggle System Console for details.")
++			self.report({"INFO"},translate_report("RE CLSP export failed. See Window > Toggle System Console for details."))
+ 		return {"FINISHED"}
+ 
+ class ImportREChain2(bpy.types.Operator, ImportHelper):
+@@ -437,12 +438,12 @@ class ImportREChain2(bpy.types.Operator, ImportHelper):
+ 		editorVersion = str(bl_info["version"][0])+"."+str(bl_info["version"][1])
+ 		print(f"\n{textColors.BOLD}RE Chain Editor V{editorVersion}{textColors.ENDC}")
+ 		print(f"Blender Version {bpy.app.version[0]}.{bpy.app.version[1]}.{bpy.app.version[2]}")
+-		print("https://github.com/NSACloud/RE-Chain-Editor")
++		print("https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/tree/feat/onimusha-wots")
+ 		success = importChainFile(self.filepath,options,isChain2=True)
+ 		if success:
+ 			return {"FINISHED"}
+ 		else:
+-			self.report({"INFO"},"Failed to import RE Chain. Make sure the mesh file is imported.")
++			self.report({"INFO"},translate_report("Failed to import RE Chain. Make sure the mesh file is imported."))
+ 			return {"CANCELLED"}
+ 	def invoke(self, context, event):
+ 		armatureObj = None
+@@ -534,20 +535,20 @@ class ExportREChain2(bpy.types.Operator, ExportHelper):
+ 		try:
+ 			chainVersion = int(os.path.splitext(self.filepath)[1].replace(".",""))
+ 		except:
+-			self.report({"INFO"},"Chain file path is missing number extension. Cannot export.")
++			self.report({"INFO"},translate_report("Chain file path is missing number extension. Cannot export."))
+ 			return{"CANCELLED"}
+ 		editorVersion = str(bl_info["version"][0])+"."+str(bl_info["version"][1])
+ 		print(f"\n{textColors.BOLD}RE Chain Editor V{editorVersion}{textColors.ENDC}")
+ 		print(f"Blender Version {bpy.app.version[0]}.{bpy.app.version[1]}.{bpy.app.version[2]}")
+-		print("https://github.com/NSACloud/RE-Chain-Editor")
++		print("https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/tree/feat/onimusha-wots")
+ 		success = exportChainFile(self.filepath,options, chainVersion,isChain2=True)
+ 		if success:
+-			self.report({"INFO"},"Exported RE Chain successfully.")
++			self.report({"INFO"},translate_report("Exported RE Chain successfully."))
+ 			#Add batch export entry to RE Toolbox if it doesn't already have one
+ 			
+ 			bpy.data.collections[self.targetCollection]["BatchExport_path"] = self.filepath
+ 		else:
+-			self.report({"INFO"},"RE Chain export failed. See Window > Toggle System Console for details.")
++			self.report({"INFO"},translate_report("RE Chain export failed. See Window > Toggle System Console for details."))
+ 		return {"FINISHED"}
+ 
+ # Registration
+@@ -724,6 +725,7 @@ def re_chain_editor_export(self, context):
+ 
+ 
+ def register():
++	register_translations()
+ 	addon_updater_ops.register(bl_info)
+ 	for classEntry in classes:
+ 		bpy.utils.register_class(classEntry)
+@@ -791,5 +793,6 @@ def unregister():
+ 		bpy.utils.unregister_class(CLSP_FH_drag_import)
  	#UNREGISTER PROPERTY GROUP PROPERTIES
  	#del bpy.types.Object.re_chain_header
++	unregister_translations()
  if __name__ == '__main__':
 -	register()
 \ No newline at end of file
 +	register()
+diff --git a/addon_updater_ops.py b/addon_updater_ops.py
+index 9fdb901..7e41184 100644
+--- a/addon_updater_ops.py
++++ b/addon_updater_ops.py
+@@ -1353,16 +1353,16 @@ def register(bl_info):
+     updater.private_token = None  # "tokenstring"
+ 
+     # Choose your own username, must match website (not needed for GitLab).
+-    updater.user = "NSACloud"
++    updater.user = "yequ172672"
+ 
+     # Choose your own repository, must match git name for GitHUb and Bitbucket,
+     # for GitLab use project ID (numbers only).
+-    updater.repo = "RE-Chain-Editor"
++    updater.repo = "RE-Chain-Editor-5.2-CN"
+ 
+     # updater.addon = # define at top of module, MUST be done first
+ 
+     # Website for manual addon download, optional but recommended to set.
+-    updater.website = "https://github.com/NSACloud/RE-Chain-Editor"
++    updater.website = "https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/tree/feat/onimusha-wots"
+ 
+     # Addon subfolder path.
+     # "sample/path/to/addon"
 diff --git a/modules/blender_re_chain.py b/modules/blender_re_chain.py
 index c7d3920..efb8d8b 100644
 --- a/modules/blender_re_chain.py
@@ -289,10 +444,10 @@ index 5550b66..b204397 100644
 \ No newline at end of file
 +	print(textColors.OKGREEN + "__________________________________\nChain2 write finished." + textColors.ENDC)
 diff --git a/modules/re_chain_operators.py b/modules/re_chain_operators.py
-index 86f40c5..70792ba 100644
+index 86f40c5..ef34511 100644
 --- a/modules/re_chain_operators.py
 +++ b/modules/re_chain_operators.py
-@@ -11,7 +11,7 @@ from .file_re_chain import ChainHeaderData,ChainSettingsData,WindSettingsData,Ch
+@@ -11,9 +11,15 @@ from .file_re_chain import ChainHeaderData,ChainSettingsData,WindSettingsData,Ch
  from .file_re_chain2 import Chain2HeaderData,Chain2SettingsData,Chain2WindSettingsData,Chain2GroupData,Chain2NodeData,Chain2JiggleData,Chain2CollisionData,Chain2LinkData,Chain2LinkNode
  from .re_chain_propertyGroups import getChainHeader,getWindSettings,getChainSettings,getChainGroup,getChainNode,getChainJiggle,getChainLink,getChainCollision,getChainLinkCollisionNode
  from .ui_re_chain_panels import tag_redraw
@@ -300,8 +455,64 @@ index 86f40c5..70792ba 100644
 +from .blender_utils import showErrorMessageBox,outlinerShowObject,setGeometryNodeModifierInput
  from .re_chain_presets import saveAsPreset,readPresetJSON
  from .re_chain_geoNodes import getColCapsuleGeoNodeTree,getColSphereGeoNodeTree,getChainLinkGeoNodeTree,getConeGeoNodeTree,getLinkColGeoNodeTree,getChainGroupMat
++from ..translations import report as translate_report, tip as translate_tip
++
++
++def _show_error_message(message):
++	"""Show an operator popup using the registered translation context."""
++	showErrorMessageBox(translate_tip(message))
  
-@@ -389,12 +389,8 @@ class WM_OT_CollisionFromBones(Operator):
+ 
+ class WM_OT_ChainFromBone(Operator):
+@@ -35,7 +41,7 @@ class WM_OT_ChainFromBone(Operator):
+ 					chainList = selected
+ 					valid = True
+ 				else:
+-					showErrorMessageBox("Must select pose bones to create a chain from selection.")
++					_show_error_message("Must select pose bones to create a chain from selection.")
+ 					return {'CANCELLED'}
+ 			else:
+ 				if len(selected) == 1:
+@@ -45,7 +51,7 @@ class WM_OT_ChainFromBone(Operator):
+ 					chainList.insert(0,startBone)
+ 					#print(chainList)
+ 				else:
+-					showErrorMessageBox("Select only the chain start bone.")
++					_show_error_message("Select only the chain start bone.")
+ 					return {'CANCELLED'}
+ 				valid = True
+ 				
+@@ -54,7 +60,7 @@ class WM_OT_ChainFromBone(Operator):
+ 						valid = False
+ 			
+ 			if not valid:
+-				showErrorMessageBox("Cannot have branching bones in a chain.")
++				_show_error_message("Cannot have branching bones in a chain.")
+ 				return {'CANCELLED'}
+ 			else:
+ 				#chainEntryCollection = getCollection(f"Chain Entries - {chainCollection.name}",chainCollection,makeNew = False)
+@@ -230,9 +236,9 @@ class WM_OT_ChainFromBone(Operator):
+ 				lightObj.hide_viewport = bpy.context.scene.re_chain_toolpanel.hideLastNodeAngleLimit
+ 				alignChains()
+ 				setChainBoneColor(armature)
+-			self.report({"INFO"},"Created chain group from bone.")
++			self.report({"INFO"},translate_report("Created chain group from bone."))
+ 		else:
+-			self.report({"ERROR"},"No chain group was created because the active chain collection is not set.")
++			self.report({"ERROR"},translate_report("No chain group was created because the active chain collection is not set."))
+ 		return {'FINISHED'}
+ 	@classmethod
+ 	def poll(self,context):
+@@ -275,7 +281,7 @@ class WM_OT_CollisionFromBones(Operator):
+ 			
+ 			
+ 			if not valid:
+-				showErrorMessageBox("Select one bone to make a sphere or two to make a capsule.")
++				_show_error_message("Select one bone to make a sphere or two to make a capsule.")
+ 			else:
+ 				if not isCLSP:
+ 					collisionCollection = getCollection(f"Chain Collisions - {chainCollection.name}",chainCollection,makeNew = False)
+@@ -389,16 +395,12 @@ class WM_OT_CollisionFromBones(Operator):
  					#modifier["Start Object"] = startObj.name
  					#modifier["End Object"] = endObj.name
  					#Can't access group inputs by name, have to use blender's auto generated names because ???
@@ -314,9 +525,82 @@ index 86f40c5..70792ba 100644
 +					setGeometryNodeModifierInput(modifier, 0, colCapsuleStartObj)
 +					setGeometryNodeModifierInput(modifier, 1, colCapsuleEndObj)
  				alignCollisions()
- 				self.report({"INFO"},"Created collision from bone.")
+-				self.report({"INFO"},"Created collision from bone.")
++				self.report({"INFO"},translate_report("Created collision from bone."))
  		else:
-@@ -729,17 +725,10 @@ class WM_OT_CreateChainLinkCollision(Operator):
+-			self.report({"ERROR"},"No collision was created because the active chain collection is not set.")
++			self.report({"ERROR"},translate_report("No collision was created because the active chain collection is not set."))
+ 		return {'FINISHED'}
+ 	@classmethod
+ 	def poll(self,context):
+@@ -439,10 +441,10 @@ class WM_OT_NewChainHeader(Operator):
+ 				getChainHeader(chainHeader,chainHeaderObj,isChain2)
+ 				lockObjTransforms(chainHeaderObj)
+ 				bpy.context.view_layer.objects.active = chainHeaderObj
+-			self.report({"INFO"},"Created new RE chain collection.")
++			self.report({"INFO"},translate_report("Created new RE chain collection."))
+ 			return {'FINISHED'}
+ 		else:
+-			self.report({"ERROR"},"Invalid chain collection name.")
++			self.report({"ERROR"},translate_report("Invalid chain collection name."))
+ 			return {'CANCELLED'}
+ 	def invoke(self,context,event):
+ 		meshCollectionName = context.scene.get("REMeshLastImportedCollection")
+@@ -478,12 +480,12 @@ class WM_OT_NewChainSettings(Operator):
+ 			getChainSettings(chainSettings,chainSettingsObj,isChain2)
+ 			lockObjTransforms(chainSettingsObj,lockLocation = False,lockRotation = True,lockScale = True)
+ 			chainSettingsObj.re_chain_chainsettings.id = currentSettingID
+-			self.report({"INFO"},"Created chain settings object.")
++			self.report({"INFO"},translate_report("Created chain settings object."))
+ 			if bpy.context.mode == "OBJECT":	
+ 				bpy.context.view_layer.objects.active = chainSettingsObj
+ 			bpy.context.scene.re_chain_toolpanel.chainSetting = chainSettingsObj
+ 		else:
+-			self.report({"ERROR"},"No chain settings object was created because the active chain collection is not set.")
++			self.report({"ERROR"},translate_report("No chain settings object was created because the active chain collection is not set."))
+ 		return {'FINISHED'}
+ 	@classmethod
+ 	def poll(self,context):
+@@ -518,10 +520,10 @@ class WM_OT_NewWindSettings(Operator):
+ 			lockObjTransforms(windSettingsObj)
+ 			getWindSettings(windSettings,windSettingsObj,isChain2)
+ 			windSettingsObj.re_chain_windsettings.id = currentSettingID
+-			self.report({"INFO"},"Created wind settings object.")
++			self.report({"INFO"},translate_report("Created wind settings object."))
+ 			bpy.context.view_layer.objects.active = windSettingsObj
+ 		else:
+-			self.report({"ERROR"},"No wind settings object was created because the active chain collection is not set.")
++			self.report({"ERROR"},translate_report("No wind settings object was created because the active chain collection is not set."))
+ 		return {'FINISHED'}
+ 	@classmethod
+ 	def poll(self,context):
+@@ -559,10 +561,10 @@ class WM_OT_NewChainJiggle(Operator):
+ 			chainJiggleObj.scale = (chainJiggle.rangeX, chainJiggle.rangeY, chainJiggle.rangeZ)
+ 			chainJiggleObj.location = (chainJiggle.rangeOffsetX, chainJiggle.rangeOffsetY, chainJiggle.rangeOffsetZ)
+ 			
+-			self.report({"INFO"},"Created chain jiggle object.")
++			self.report({"INFO"},translate_report("Created chain jiggle object."))
+ 			bpy.context.view_layer.objects.active = chainJiggleObj
+ 		else:
+-			self.report({"ERROR"},"No chain jiggle object was created because the active chain collection is not set.")
++			self.report({"ERROR"},translate_report("No chain jiggle object was created because the active chain collection is not set."))
+ 		return {'FINISHED'}
+ 
+ class WM_OT_NewChainLink(Operator):
+@@ -633,10 +635,10 @@ class WM_OT_NewChainLink(Operator):
+ 			
+ 			getChainLink(chainLink,chainLinkObj)
+ 			
+-			self.report({"INFO"},"Created chain link object.")
++			self.report({"INFO"},translate_report("Created chain link object."))
+ 			bpy.context.view_layer.objects.active = chainLinkObj
+ 		else:
+-			self.report({"ERROR"},"No chain link object was created because the active chain collection is not set.")
++			self.report({"ERROR"},translate_report("No chain link object was created because the active chain collection is not set."))
+ 		return {'FINISHED'}
+ 	@classmethod
+ 	def poll(self,context):
+@@ -729,17 +731,10 @@ class WM_OT_CreateChainLinkCollision(Operator):
  							bpy.data.node_groups.remove(modifier.node_group)
  						modifier.node_group = nodeGroup
  						
@@ -338,7 +622,291 @@ index 86f40c5..70792ba 100644
  						modifier.node_group.interface_update(bpy.context)
  						if isChain2:
  							linkCollision = Chain2LinkNode()
-@@ -2189,4 +2178,4 @@ class WM_OT_SetCFILPath(Operator):
+@@ -748,13 +743,13 @@ class WM_OT_CreateChainLinkCollision(Operator):
+ 						linkCollisionObj.re_chain_chainlink_collision.collisionRadius = linkCollision.collisionRadius
+ 						linkCollisionObj.re_chain_chainlink_collision.collisionFilterFlags = linkCollision.collisionFilterFlags
+ 						linkCollisionObj.show_in_front = bpy.context.scene.re_chain_toolpanel.drawLinkCollisionsThroughObjects
+-					self.report({"INFO"},"Created chain link collision.")
++					self.report({"INFO"},translate_report("Created chain link collision."))
+ 				else:
+-					self.report({"ERROR"},"The chain groups do not have the same amount of bones or are not set in the chain link.")
++					self.report({"ERROR"},translate_report("The chain groups do not have the same amount of bones or are not set in the chain link."))
+ 			
+-			self.report({"INFO"},"Created chain link collision.")
++			self.report({"INFO"},translate_report("Created chain link collision."))
+ 		else:
+-			self.report({"ERROR"},"No chain link object was created because the active chain collection is not set.")
++			self.report({"ERROR"},translate_report("No chain link object was created because the active chain collection is not set."))
+ 		return {'FINISHED'}
+ 	@classmethod
+ 	def poll(self,context):
+@@ -870,9 +865,9 @@ class WM_OT_CopyChainProperties(Operator):
+ 				clipboard.re_chain_type_name = "Collision Data"
+ 				
+ 		else:
+-			showErrorMessageBox("A chain object must be selected.")
++			_show_error_message("A chain object must be selected.")
+ 			return{'CANCELLED'}
+-		self.report({"INFO"},"Copied properties of " + str(clipboard.re_chain_type_name)+" object to clipboard.")
++		self.report({"INFO"},translate_report("Copied properties of {} object to clipboard.", clipboard.re_chain_type_name))
+ 		return {'FINISHED'}
+ 
+ class WM_OT_PasteChainProperties(Operator):
+@@ -948,9 +943,9 @@ class WM_OT_PasteChainProperties(Operator):
+ 					activeObj.re_chain_chaincollision.endCollisionOffset = activeObj.re_chain_chaincollision.endCollisionOffset
+ 					activeObj.re_chain_chaincollision.radius = activeObj.re_chain_chaincollision.radius
+ 				tag_redraw(bpy.context)#Redraw property panel
+-				self.report({"INFO"},"Pasted properties of " + str(clipboard.re_chain_type_name)+" object from clipboard.")
++				self.report({"INFO"},translate_report("Pasted properties of {} object from clipboard.", clipboard.re_chain_type_name))
+ 			else:
+-				showErrorMessageBox("The contents stored in the clipboard can't be applied to the selected object.")
++				_show_error_message("The contents stored in the clipboard can't be applied to the selected object.")
+ 		
+ 		return {'FINISHED'}
+ 
+@@ -963,7 +958,7 @@ class WM_OT_AlignChainsToBones(Operator):
+ 		alignChains()
+ 		syncCollisionOffsets()
+ 		alignCollisions()
+-		self.report({"INFO"},"Aligned chain objects to bones.")
++		self.report({"INFO"},translate_report("Aligned chain objects to bones."))
+ 		return {'FINISHED'}
+ 
+ def hasChildNode(obj):
+@@ -1063,10 +1058,10 @@ class WM_OT_AlignFrames(Operator):
+ 						frame.matrix_basis = chainNode.matrix_world.inverted() @ frame.matrix_basis
+ 						frame.location = chainNode.location
+ 						frame.scale = chainNode.scale
+-			self.report({"INFO"},"Aligned angle limit directions.")
++			self.report({"INFO"},translate_report("Aligned angle limit directions."))
+ 			return {'FINISHED'}
+ 		else:
+-			showErrorMessageBox("No chains found in selection or collection.")
++			_show_error_message("No chains found in selection or collection.")
+ 			return {'CANCELLED'}
+ 	@classmethod
+ 	def poll(self,context):
+@@ -1094,7 +1089,7 @@ class WM_OT_ApplyChainSettingsPreset(Operator):
+ 			finished = readPresetJSON(os.path.join(presetsPath,enumValue),activeObj)
+ 		tag_redraw(bpy.context)
+ 		if finished:
+-			self.report({"INFO"},"Applied chain settings preset.")
++			self.report({"INFO"},translate_report("Applied chain settings preset."))
+ 			return {'FINISHED'}
+ 		else:
+ 			return {'CANCELLED'}
+@@ -1114,7 +1109,7 @@ class WM_OT_ApplyChainGroupPreset(Operator):
+ 			finished = readPresetJSON(os.path.join(presetsPath,enumValue),activeObj)
+ 		tag_redraw(bpy.context)
+ 		if finished:
+-			self.report({"INFO"},"Applied chain group preset.")
++			self.report({"INFO"},translate_report("Applied chain group preset."))
+ 			return {'FINISHED'}
+ 		else:
+ 			return {'CANCELLED'}
+@@ -1145,10 +1140,10 @@ class WM_OT_ApplyChainNodePreset(Operator):
+ 					finished = readPresetJSON(os.path.join(presetsPath,enumValue),nodeObj)
+ 				tag_redraw(bpy.context)
+ 		if finished:
+-			self.report({"INFO"},"Applied chain node preset.")
++			self.report({"INFO"},translate_report("Applied chain node preset."))
+ 			return {'FINISHED'}
+ 		else:
+-			showErrorMessageBox("Must select a chain node in order to apply the preset to it.")
++			_show_error_message("Must select a chain node in order to apply the preset to it.")
+ 			return {'CANCELLED'}
+ class WM_OT_ApplyWindSettingsPreset(Operator):
+ 	bl_label = "Apply Wind Settings Preset"
+@@ -1164,7 +1159,7 @@ class WM_OT_ApplyWindSettingsPreset(Operator):
+ 			finished = readPresetJSON(os.path.join(presetsPath,enumValue),activeObj)
+ 		tag_redraw(bpy.context)
+ 		if finished:
+-			self.report({"INFO"},"Applied wind settings preset.")
++			self.report({"INFO"},translate_report("Applied wind settings preset."))
+ 			return {'FINISHED'}
+ 		else:
+ 			return {'CANCELLED'}
+@@ -1193,7 +1188,7 @@ class WM_OT_SavePreset(Operator):
+ 	def execute(self, context):
+ 		finished = saveAsPreset(context.selected_objects, self.presetName)
+ 		if finished:
+-			self.report({"INFO"},"Saved preset.")
++			self.report({"INFO"},translate_report("Saved preset."))
+ 			return {'FINISHED'}
+ 		else:
+ 			return {'CANCELLED'}
+@@ -1212,7 +1207,7 @@ class WM_OT_CreateChainBoneGroup(Operator):
+ 		else:
+ 			for obj in bpy.data.objects:
+ 				if armature != None:
+-					self.report({"WARNING"},"More than one armature was found in the scene. Select an armature before using this button.")
++					self.report({"WARNING"},translate_report("More than one armature was found in the scene. Select an armature before using this button."))
+ 					return {'CANCELLED'}
+ 				if obj.type == "ARMATURE":
+ 					armature = obj
+@@ -1235,10 +1230,10 @@ class WM_OT_CreateChainBoneGroup(Operator):
+ 				else:
+ 					bone = armature.data.bones[chainBone]
+ 					bone.color.palette = "THEME03"
+-			self.report({"INFO"},"Created bone group on armature from chain bones.")
++			self.report({"INFO"},translate_report("Created bone group on armature from chain bones."))
+ 			return {'FINISHED'}
+ 		else:
+-			self.report({"WARNING"},"No armatures were found in the scene.")
++			self.report({"WARNING"},translate_report("No armatures were found in the scene."))
+ 			return {'CANCELLED'}
+ 
+ 
+@@ -1290,7 +1285,7 @@ class WM_OT_HideNonNodes(Operator):
+ 			else:
+ 				if not obj.get("isLastNode") and bpy.context.scene.re_chain_toolpanel.hideLastNodeAngleLimit:
+ 					obj.hide_viewport = False
+-		self.report({"INFO"},"Hid all non chain node objects.")
++		self.report({"INFO"},translate_report("Hid all non chain node objects."))
+ 		return {'FINISHED'}
+ 
+ class WM_OT_HideNonCollisions(Operator):
+@@ -1306,7 +1301,7 @@ class WM_OT_HideNonCollisions(Operator):
+ 				obj.hide_viewport = False
+ 			else:
+ 				obj.hide_viewport = True
+-		self.report({"INFO"},"Hid all non collision objects.")
++		self.report({"INFO"},translate_report("Hid all non collision objects."))
+ 		return {'FINISHED'}
+ class WM_OT_HideNonAngleLimits(Operator):
+ 	bl_label = "Hide Non Angle Limits"
+@@ -1322,7 +1317,7 @@ class WM_OT_HideNonAngleLimits(Operator):
+ 					obj.hide_viewport = False
+ 				#obj.show_name = bpy.context.scene.re_chain_toolpanel.showNodeNames
+ 				
+-		self.report({"INFO"},"Hid all non chain angle limit objects.")
++		self.report({"INFO"},translate_report("Hid all non chain angle limit objects."))
+ 		return {'FINISHED'}
+ class WM_OT_UnhideAll(Operator):
+ 	bl_label = "Unhide All"
+@@ -1336,7 +1331,7 @@ class WM_OT_UnhideAll(Operator):
+ 			else:
+ 				if bpy.context.scene.re_chain_toolpanel.showAngleLimitCones and not (obj.get("isLastNode") and bpy.context.scene.re_chain_toolpanel.hideLastNodeAngleLimit):
+ 					obj.hide_viewport = False
+-		self.report({"INFO"},"Unhid all objects.")
++		self.report({"INFO"},translate_report("Unhid all objects."))
+ 		return {'FINISHED'}
+ 
+ class WM_OT_RenameBoneChain(Operator):
+@@ -1360,7 +1355,7 @@ class WM_OT_RenameBoneChain(Operator):
+ 			chainList.insert(0,startBone)
+ 			#print(chainList)
+ 		else:
+-			showErrorMessageBox("Select only the chain start bone.")
++			_show_error_message("Select only the chain start bone.")
+ 			return {'CANCELLED'}
+ 		valid = True
+ 		
+@@ -1369,7 +1364,7 @@ class WM_OT_RenameBoneChain(Operator):
+ 				valid = False
+ 		
+ 		if not valid:
+-			showErrorMessageBox("Cannot have branching bones in a chain.")
++			_show_error_message("Cannot have branching bones in a chain.")
+ 			return {'CANCELLED'}
+ 		else:
+ 			
+@@ -1424,7 +1419,7 @@ class WM_OT_RenameBoneChain(Operator):
+ 						if child.get("TYPE",None) == "RE_CHAIN_NODE_FRAME_HELPER":
+ 							child.name = newBoneName+"_ANGLE_LIMIT_HELPER"
+ 				bone.name = newBoneName
+-		self.report({"INFO"},"Renamed bone chain.")
++		self.report({"INFO"},translate_report("Renamed bone chain."))
+ 		return {'FINISHED'}
+ 	
+ 	def invoke(self,context,event):
+@@ -1473,10 +1468,10 @@ class WM_OT_ApplyAngleLimitRamp(Operator):
+ 						chainNode.re_chain_chainnode.angleLimitRad = angleLimitStep * (nodeIndex + 1)
+ 					else:
+ 						chainNode.re_chain_chainnode.angleLimitRad = self.maxAngleLimit
+-			self.report({"INFO"},"Applied angle limit ramp to selected chain group(s).")
++			self.report({"INFO"},translate_report("Applied angle limit ramp to selected chain group(s)."))
+ 			return {'FINISHED'}
+ 		else:
+-			showErrorMessageBox("Chain Group object(s) must be selected to apply an angle limit ramp.")
++			_show_error_message("Chain Group object(s) must be selected to apply an angle limit ramp.")
+ 			return {'CANCELLED'}
+ 	
+ 	def invoke(self,context,event):
+@@ -1514,7 +1509,7 @@ class WM_OT_AlignBoneTailsToAxis(Operator):
+ 			chainList = startBone.children_recursive
+ 			chainList.insert(0,startBone)
+ 		else:
+-			showErrorMessageBox("Select only the chain start bone.")
++			_show_error_message("Select only the chain start bone.")
+ 			return {'CANCELLED'}
+ 		
+ 		armature = startBone.id_data
+@@ -1547,7 +1542,7 @@ class WM_OT_AlignBoneTailsToAxis(Operator):
+ 			armature.data.edit_bones[bone.name].tail = editBone.head + tailAddVector
+ 			armature.data.edit_bones[bone.name].roll = 0
+ 		bpy.ops.object.mode_set(mode="POSE")#Switch back to pose mode after finished editing bones
+-		self.report({"INFO"},"Aligned bone tails to axis.")
++		self.report({"INFO"},translate_report("Aligned bone tails to axis."))
+ 		return {'FINISHED'}
+ 	def invoke(self,context,event):
+ 		return context.window_manager.invoke_props_dialog(self)
+@@ -1679,10 +1674,10 @@ class WM_OT_CreateChainSubGroup(Operator):
+ 					
+ 					newNode.re_chain_chainnode.angleLimitRad *= self.multiplyAngleLimit 
+ 					nodeParent = newNode
+-			self.report({"INFO"},"Created chain subgroup.")
++			self.report({"INFO"},translate_report("Created chain subgroup."))
+ 			return {'FINISHED'}
+ 		else:
+-			showErrorMessageBox("Chain Group object(s) must be selected to create a sub group.")
++			_show_error_message("Chain Group object(s) must be selected to create a sub group.")
+ 			return {'CANCELLED'}
+ 	
+ 	def invoke(self,context,event):
+@@ -1910,7 +1905,7 @@ class WM_OT_SetAttrFlags(Operator):
+ 						selectedObject.re_chain_chaingroup.attrFlags = bitFlag
+ 					else:
+ 						selectedObject.re_chain_chainsettings.groupDefaultAttr = bitFlag
+-			self.report({"INFO"},"Set attribute flags.")
++			self.report({"INFO"},translate_report("Set attribute flags."))
+ 			tag_redraw(bpy.context)
+ 		return {'FINISHED'}
+ 	
+@@ -1982,7 +1977,7 @@ class WM_OT_SetNodeAttrFlags(Operator):
+ 				selectedObjectType = selectedObject.get("TYPE",None)
+ 				if selectedObjectType == "RE_CHAIN_NODE":
+ 					selectedObject.re_chain_chainnode.attrFlags = bitFlag
+-			self.report({"INFO"},"Set attribute flags.")
++			self.report({"INFO"},translate_report("Set attribute flags."))
+ 			tag_redraw(bpy.context)
+ 		return {'FINISHED'}
+ 	
+@@ -2078,7 +2073,7 @@ class WM_OT_SetSettingAttrFlags(Operator):
+ 				selectedObjectType = selectedObject.get("TYPE",None)
+ 				if selectedObjectType == "RE_CHAIN_CHAINSETTINGS":
+ 					selectedObject.re_chain_chainsettings.settingsAttrFlags = bitFlag
+-			self.report({"INFO"},"Set attribute flags.")
++			self.report({"INFO"},translate_report("Set attribute flags."))
+ 			tag_redraw(bpy.context)
+ 		return {'FINISHED'}
+ 	
+@@ -2140,7 +2135,7 @@ class WM_OT_SetJiggleAttrFlags(Operator):
+ 				selectedObjectType = selectedObject.get("TYPE",None)
+ 				if selectedObjectType == "RE_CHAIN_JIGGLE":
+ 					selectedObject.re_chain_chainjiggle.attrFlags = bitFlag
+-			self.report({"INFO"},"Set attribute flags.")
++			self.report({"INFO"},translate_report("Set attribute flags."))
+ 			tag_redraw(bpy.context)
+ 		return {'FINISHED'}
+ 	
+@@ -2184,9 +2179,9 @@ class WM_OT_SetCFILPath(Operator):
+ 			selectedObjectType = selectedObject.get("TYPE",None)
+ 			if selectedObjectType == "RE_CHAIN_CHAINSETTINGS":
+ 				selectedObject.re_chain_chainsettings.colliderFilterInfoPath = self.cfilPath
+-		self.report({"INFO"},"Set cfil path flags.")
++		self.report({"INFO"},translate_report("Set cfil path flags."))
+ 		tag_redraw(bpy.context)
  		return {'FINISHED'}
  	
  	def invoke(self,context,event):
@@ -400,3 +968,927 @@ index d570f0f..79d4c40 100644
 -		)
 \ No newline at end of file
 +		)
+diff --git a/modules/ui_re_chain_panels.py b/modules/ui_re_chain_panels.py
+index 6025796..ab870e4 100644
+--- a/modules/ui_re_chain_panels.py
++++ b/modules/ui_re_chain_panels.py
+@@ -7,6 +7,7 @@ from bpy.types import (Panel,
+ 					   )
+ 
+ from .file_re_chain import version
++from ..translations import interface as translate_interface
+ 
+ def tag_redraw(context, space_type="PROPERTIES", region_type="WINDOW"):
+ 	for window in context.window_manager.windows:
+@@ -71,7 +72,7 @@ class OBJECT_PT_ChainClipboardPanel(Panel):
+ 		row.operator("re_chain.copy_chain_properties")
+ 		row.operator("re_chain.paste_chain_properties")
+ 		layout.label(text="Clipboard Contents:")
+-		layout.label(text=str(context.scene.re_chain_clipboard.re_chain_type_name))
++		layout.label(text=translate_interface(str(context.scene.re_chain_clipboard.re_chain_type_name)))
+ 		
+ class OBJECT_PT_ChainPoseModePanel(Panel):
+ 	bl_label = "RE Chain: Pose Mode Tools"
+@@ -165,7 +166,7 @@ class OBJECT_PT_ChainUtilsPanel(Panel):
+ 		row = layout.row()
+ 		row.operator("re_chain.copy_chain_properties")
+ 		row.operator("re_chain.paste_chain_properties")
+-		layout.label(text="Clipboard Contents: "+str(re_chain_toolpanel.clipboardType))
++		layout.label(text=translate_interface("Clipboard Contents: {}", re_chain_toolpanel.clipboardType))
+ 		layout.separator()
+ 		layout.label(text="Object Mode Tools")
+ 		layout.operator("re_chain.create_chain_header")
+@@ -395,10 +396,10 @@ class OBJECT_PT_ChainSettingsSubDataPanel(Panel):
+ 		split = layout.split(factor=0.025)#Indent list slightly to make it more clear it's a part of a sub panel
+ 		col1 = split.column()
+ 		col2 = split.column()
+-		col2.label(text = f"Chain2 version 12 (MH Wilds) and above only")
++		col2.label(text = translate_interface("Chain2 version 12 (MH Wilds) and above only"))
+ 		col2.prop(re_chain_chainsettings,"unknQuaternion")
+ 		col2.prop(re_chain_chainsettings,"unknPos")
+-		col2.label(text = f"Sub Data Count: {str(len(object.re_chain_chainsettings.subDataList_items))}")
++		col2.label(text = translate_interface("Sub Data Count: {}", len(object.re_chain_chainsettings.subDataList_items)))
+ 
+ 		col2.template_list(
+ 			listtype_name = "CHAIN_UL_ChainSettingsSubDataList", 
+@@ -811,4 +812,4 @@ class OBJECT_PT_ColorVisPanel(Panel):
+ 		layout.prop(re_chain_toolpanel, "chainLinkCollisionColor")
+ 		layout.prop(re_chain_toolpanel, "coneColor")
+ 		layout.prop(re_chain_toolpanel, "coneSubGroupColor")
+-		layout.prop(re_chain_toolpanel, "chainGroupColor")
+\ No newline at end of file
++		layout.prop(re_chain_toolpanel, "chainGroupColor")
+diff --git a/translations.py b/translations.py
+new file mode 100644
+index 0000000..ed5ba6e
+--- /dev/null
++++ b/translations.py
+@@ -0,0 +1,868 @@
++"""Chinese UI translations for RE Chain Editor.
++
++Blender translates RNA labels, descriptions, menu text and operator text from
++the ``bpy.app.translations`` registry.  Keeping the source strings in this
++module means the add-on logic, file-format identifiers and game/version
++values remain unchanged.  The same table is exposed for the add-on's
++registration hooks and for isolated Blender validation.
++"""
++
++from __future__ import annotations
++
++import bpy
++from bpy.app.translations import pgettext_iface, pgettext_tip
++
++
++# Blender 5.2 uses ``zh_HANS`` for the UI locale and the translation registry
++# also accepts the conventional ``zh_CN`` locale name.  Keep both entries so
++# the add-on works with either locale spelling without changing user prefs.
++LANGUAGES = ("zh_CN", "zh_HANS")
++
++
++# Interface strings use Blender's default ``*`` context.  Technical format
++# names, file extensions, enum identifiers and game names intentionally stay
++# recognizable in the Chinese UI.
++interface_translations = {
++    # Add-on metadata, file menus and file-browser labels.
++    "RE Chain Editor": "RE Chain 编辑器",
++    "Import RE Chain": "导入 RE Chain",
++    "Export RE Chain": "导出 RE Chain",
++    "Import RE CLSP": "导入 RE CLSP",
++    "Export RE CLSP": "导出 RE CLSP",
++    "Import RE Chain2": "导入 RE Chain2",
++    "Export RE Chain2": "导出 RE Chain2",
++    "File handler for RE Chain importing": "RE Chain 导入文件处理器",
++    "File handler for RE Chain2 importing": "RE Chain2 导入文件处理器",
++    "File handler for RE CLSP importing": "RE CLSP 导入文件处理器",
++    "Import and export RE Engine chain files.": "导入和导出 RE Engine 链条文件。",
++    "Donate on Ko-fi": "在 Ko-fi 上捐赠",
++    "Target Armature:": "目标骨架：",
++    "Merge With Chain Collection:": "合并到链条集合：",
++    "Chain Version:": "链条版本：",
++    "Chain Collection:": "链条集合：",
++    "CLSP Version:": "CLSP 版本：",
++    "CLSP Collection:": "CLSP 集合：",
++    "Active Chain Collection": "当前链条集合",
++    "Create new chains in Pose Mode.": "请在姿态模式中创建新链条。",
++    "Copy Chain Object Properties": "复制链条对象属性",
++    "Clipboard Contents:": "剪贴板内容：",
++    "Clipboard Contents: {}": "剪贴板内容：{}",
++    "Chain Header": "链条头",
++    "Wind Settings": "风设置",
++    "Chain Settings": "链条设置",
++    "Chain Group": "链条组",
++    "Chain Node": "链条节点",
++    "Chain Jiggle": "链条摆动",
++    "Chain Link": "链条链接",
++    "Chain Link Collision Data": "链条链接碰撞数据",
++    "Angle Limit Orientation": "角度限制方向",
++    "Collision Data + Subdata": "碰撞数据 + 子数据",
++    "Collision Data": "碰撞数据",
++    "Chain Tools": "链条工具",
++    "Chain Setting": "链条设置",
++    "Collision Tools": "碰撞工具",
++    "Extra Tools": "其他工具",
++    "Configure chains in Object Mode.": "请在物体模式中配置链条。",
++    "Chain Settings Preset": "链条设置预设",
++    "Chain Group Preset": "链条组预设",
++    "Chain Node Preset": "链条节点预设",
++    "Wind Settings Preset": "风设置预设",
++
++    # Viewport and properties panels.
++    "RE Chain: Object Mode Tools": "RE Chain：物体模式工具",
++    "RE Chain: Clipboard": "RE Chain：剪贴板",
++    "RE Chain: Pose Mode Tools": "RE Chain：姿态模式工具",
++    "RE Chain: Presets": "RE Chain：预设",
++    "RE Chain Header Settings": "RE Chain 头设置",
++    "RE Chain Wind Settings": "RE Chain 风设置",
++    "RE Chain Settings": "RE Chain 设置",
++    "Settings Sub Data": "设置子数据",
++    "RE Chain Group Settings": "RE Chain 组设置",
++    "RE Chain Sub Group Settings": "RE Chain 子组设置",
++    "RE Chain Node Settings": "RE Chain 节点设置",
++    "RE Chain Jiggle Settings": "RE Chain 摆动设置",
++    "RE Chain Collision Settings": "RE Chain 碰撞设置",
++    "RE Chain Collision Subdata Settings": "RE Chain 碰撞子数据设置",
++    "RE Chain Link Settings": "RE Chain 链接设置",
++    "RE Chain Link Collision Settings": "RE Chain 链接碰撞设置",
++    "RE Chain: Visibility": "RE Chain：可见性",
++    "Chain Node Settings": "链条节点设置",
++    "Collision Settings": "碰撞设置",
++    "Angle Limit Settings": "角度限制设置",
++    "Color Settings": "颜色设置",
++    "Older chain versions may not support all options.": "较旧的链条版本可能不支持所有选项。",
++    "Chain2 version 12 (MH Wilds) and above only": "仅适用于 Chain2 版本 12（MH Wilds）及更高版本",
++    "Sub Data Count: ": "子数据数量：",
++    "Sub Data Count: {}": "子数据数量：{}",
++
++    # Import/export property labels and descriptions.
++    "Import Unknown Hashes": "导入未知哈希",
++    "The armature to attach chain objects to.\nNOTE: If bones that are used by the chain file are missing on the armature, any chain groups or collisions using those bones won't be imported":
++        "用于附加链条对象的骨架。\n注意：如果骨架缺少链条文件使用的骨骼，将不会导入使用这些骨骼的链条组或碰撞。",
++    "Merges the imported chain with an existing chain collection.\nNote that the chain bones used by the imported file must be merged with the target armature.\nUse the Merge With Armature import option in RE Mesh Editor first.\n Leave blank if not merging a chain file":
++        "将导入的链条合并到现有链条集合。\n导入文件使用的链条骨骼必须已合并到目标骨架。\n请先在 RE Mesh Editor 中使用“与骨架合并”导入选项。\n如果不合并链条文件，请留空。",
++    "This option forces all chain groups and collisions to be imported if the bones they're supposed to be attached to aren't present.\nThis will cause errors in the console, anything imported with missing hashes will also not appear correctly.\n However upon export, the exported chain file should remain identical to the original":
++        "如果链条组或碰撞要附加的骨骼不存在，此选项仍会强制导入它们。\n这会在控制台产生错误，缺少哈希的导入对象也无法正确显示。\n但是导出后，链条文件应与原文件保持一致。",
++    "Set which game to export the chain for": "设置导出链条所对应的游戏",
++    "Set the chain collection to be exported": "设置要导出的链条集合",
++    "The armature to attach collisions to.\nNOTE: If bones that are used by the clsp file are missing on the armature, any chain groups or collisions using those bones won't be imported":
++        "用于附加碰撞的骨架。\n注意：如果骨架缺少 CLSP 文件使用的骨骼，将不会导入使用这些骨骼的链条组或碰撞。",
++    "Set the CLSP collection to be exported": "设置要导出的 CLSP 集合",
++    "Merges the imported chain2 with an existing chain collection.\nNote that the chain bones used by the imported file must be merged with the target armature.\nUse the Merge With Armature import option in RE Mesh Editor first.\n Leave blank if not merging a chain file":
++        "将导入的 Chain2 合并到现有链条集合。\n导入文件使用的链条骨骼必须已合并到目标骨架。\n请先在 RE Mesh Editor 中使用“与骨架合并”导入选项。\n如果不合并链条文件，请留空。",
++
++    # Tool-panel property labels and common descriptions.
++    "Set collision shape to be used by Create Collision From Bone button": "设置“从骨骼创建碰撞”按钮使用的碰撞形状",
++    "Set preset to be used by Apply Chain Settings Preset button": "设置“应用链条设置预设”按钮使用的预设",
++    "Set preset to be used by Apply Chain Group Preset button": "设置“应用链条组预设”按钮使用的预设",
++    "Set preset to be used by Apply Chain Node Preset button": "设置“应用链条节点预设”按钮使用的预设",
++    "Apply to Child Nodes": "应用到子节点",
++    "Apply chain node preset to all nodes that are a child of the selected node": "将链条节点预设应用到所选节点的所有子节点",
++    "Set preset to be used by Apply Wind Settings Preset button": "设置“应用风设置预设”按钮使用的预设",
++    "Show Node Names": "显示节点名称",
++    "Show Node Names in 3D View": "在 3D 视图中显示节点名称",
++    "Draw Nodes Through Objects": "穿透物体绘制节点",
++    "Make all chain node and frame objects render through any objects in front of them": "使所有链条节点和框架对象穿透前方物体显示",
++    "Draw Groups Through Objects": "穿透物体绘制组",
++    "Make all chain group objects render through any objects in front of them": "使所有链条组对象穿透前方物体显示",
++    "Show Collision Names": "显示碰撞名称",
++    "Show Collision Names in 3D View": "在 3D 视图中显示碰撞名称",
++    "Draw Collisions Through Objects": "穿透物体绘制碰撞",
++    "Make all collision objects render through any objects in front of them": "使所有碰撞对象穿透前方物体显示",
++    "Draw Link Collisions Through Objects": "穿透物体绘制链接碰撞",
++    "Make all chain link collisions render through any objects in front of them": "使所有链条链接碰撞穿透前方物体显示",
++    "Draw Handles Through Objects": "穿透物体绘制手柄",
++    "Make all capsule handle objects render through any objects in front of them": "使所有胶囊体手柄穿透前方物体显示",
++    "Show Cones": "显示圆锥",
++    "Show Angle Limit Cones in 3D View": "在 3D 视图中显示角度限制圆锥",
++    "Draw Cones Through Objects": "穿透物体绘制圆锥",
++    "Make all angle limit cones render through any objects in front of them": "使所有角度限制圆锥穿透前方物体显示",
++    "Angle Limit Size": "角度限制大小",
++    "Set the display size of node angle limits": "设置节点角度限制的显示大小",
++    "Cone Size": "圆锥大小",
++    "Set the display size of node angle limit cones": "设置节点角度限制圆锥的显示大小",
++    "Group Size": "组大小",
++    "Set the thickness of chain group lines": "设置链条组线条的粗细",
++    "Enable Experimental Features": "启用实验功能",
++    "READ THIS BEFORE ENABLING.\n\nThis button allows for chains to be created from selected bones only.\n\nWith this, you can have multiple chains starting from the same bone and have chains attached to chains.\n\nYou have to select every chain bone in order from top to bottom when creating a new chain.\n\nThere is no error checking on this, if you make a mistake, it will cause issues with the chain.\n\nThis option also enables the ability to create a collision capsule on a single bone.\n\nThese changes are not fully tested and may have issues":
++        "启用前请阅读。\n\n此按钮允许仅从所选骨骼创建链条。\n\n这样可以让多条链条从同一骨骼开始，也可以让链条附加到链条。\n\n创建新链条时，必须按从上到下的顺序选择每根链条骨骼。\n\n此功能没有错误检查，操作错误可能导致链条出现问题。\n\n此选项还允许在单根骨骼上创建碰撞胶囊体。\n\n这些更改尚未完全测试，可能存在问题。",
++    "Type": "类型",
++    "Chain File Type\nThis determines what fields are usable on chain objects": "链条文件类型\n此项决定链条对象可使用哪些字段",
++    "Show Relation Lines": "显示关系线",
++    "Show dotted lines indicating object parents. Recommended to disable since they can be very obtrusive with many objects.\nNote that this affects all objects, not just chain objects": "显示表示对象父级的点线。对象较多时可能非常杂乱，建议禁用。\n注意：此项会影响所有对象，而不仅是链条对象。",
++    "Hide Last Node Cone": "隐藏末节点圆锥",
++    "Hides the last chain node's angle limit cone. This is because the last node is typically unused and has a dummy rotation value": "隐藏链条末节点的角度限制圆锥，因为末节点通常未使用且具有虚拟旋转值。",
++
++    # Property labels used by the chain object panels.
++    "Error Flags": "错误标志",
++    "Master Size": "主大小",
++    "Do not change unless you know what you're doing": "除非你明确知道用途，否则不要更改",
++    "Rotation Order": "旋转顺序",
++    "Default Setting Index": "默认设置索引",
++    "Calculate Mode": "计算模式",
++    "Chain Attribute Flags": "链条属性标志",
++    "Chain Parameter Flags": "链条参数标志",
++    "Calculate Step Time": "计算步长时间",
++    "Model Collision Search": "模型碰撞搜索",
++    "Legacy Version": "旧版版本",
++    "Collision Hit Flag 0": "碰撞命中标志 0",
++    "Collision Hit Flag 1": "碰撞命中标志 1",
++    "Collision Hit Flag 2": "碰撞命中标志 2",
++    "Collision Hit Flag 3": "碰撞命中标志 3",
++    "Collision Hit Flag 4": "碰撞命中标志 4",
++    "Collision Hit Flag 5": "碰撞命中标志 5",
++    "Collision Hit Flag 6": "碰撞命中标志 6",
++    "Collision Hit Flag 7": "碰撞命中标志 7",
++    "High FPS Calculate Mode": "高 FPS 计算模式",
++    "Wilds Unknown": "Wilds 未知值",
++    "Wilds Unknown 2": "Wilds 未知值 2",
++    "ID": "ID",
++    "Wind Direction": "风方向",
++    "Wind Count": "风数量",
++    "Wind Type": "风类型",
++    "Random Damping": "随机阻尼",
++    "Random Damping Cycle": "随机阻尼周期",
++    "Random Cycle Scaling": "随机周期缩放",
++    "Direction 0 Min": "方向 0 最小值",
++    "Direction 0 Max": "方向 0 最大值",
++    "Direction 0 Phase Shift": "方向 0 相位偏移",
++    "Direction 0 Cycle": "方向 0 周期",
++    "Direction 0 Interval": "方向 0 间隔",
++    "Direction 1 Min": "方向 1 最小值",
++    "Direction 1 Max": "方向 1 最大值",
++    "Direction 1 Phase Shift": "方向 1 相位偏移",
++    "Direction 1 Cycle": "方向 1 周期",
++    "Direction 1 Interval": "方向 1 间隔",
++    "Direction 2 Min": "方向 2 最小值",
++    "Direction 2 Max": "方向 2 最大值",
++    "Direction 2 Phase Shift": "方向 2 相位偏移",
++    "Direction 2 Cycle": "方向 2 周期",
++    "Direction 2 Interval": "方向 2 间隔",
++    "Direction 3 Min": "方向 3 最小值",
++    "Direction 3 Max": "方向 3 最大值",
++    "Direction 3 Phase Shift": "方向 3 相位偏移",
++    "Direction 3 Cycle": "方向 3 周期",
++    "Direction 3 Interval": "方向 3 间隔",
++    "Direction 4 Min": "方向 4 最小值",
++    "Direction 4 Max": "方向 4 最大值",
++    "Direction 4 Phase Shift": "方向 4 相位偏移",
++    "Direction 4 Cycle": "方向 4 周期",
++    "Direction 4 Interval": "方向 4 间隔",
++    "Collider Filter Info": "碰撞器过滤信息",
++    "Set the file path of collider filter file (.cfil)": "设置碰撞器过滤文件（.cfil）路径",
++    "Spray Parameter Arc": "喷射参数弧度",
++    "Spray Parameter Frequency": "喷射参数频率",
++    "Spray Parameter Curve 1": "喷射参数曲线 1",
++    "Spray Parameter Curve 2": "喷射参数曲线 2",
++    "Chain Type": "链条类型",
++    "Setting Attribute Flags": "设置属性标志",
++    "Muzzle Direction": "枪口方向",
++    "Damping": "阻尼",
++    "Reduces movement of nodes": "减少节点移动",
++    "Second Damping": "第二阻尼",
++    "Second Damping Speed": "第二阻尼速度",
++    "Min Damping": "最小阻尼",
++    "Minimum amount of damping to be applied\nVersion 24 and above only": "应用的最小阻尼量\n仅适用于版本 24 及更高版本",
++    "Second Min Damping": "第二最小阻尼",
++    "Damping Power": "阻尼幂",
++    "Damping Power\nVersion 24 and above only": "阻尼幂\n仅适用于版本 24 及更高版本",
++    "Second Damping Power": "第二阻尼幂",
++    "Second Damping Power\nVersion 24 and above only": "第二阻尼幂\n仅适用于版本 24 及更高版本",
++    "Collide Max Velocity": "碰撞最大速度",
++    "Collide Max Velocity\nVersion 24 and above only": "碰撞最大速度\n仅适用于版本 24 及更高版本",
++    "Shooting Elastic Limit Rate": "射击弹性限制率",
++    "Spring Force": "弹簧力",
++    "How hard nodes will spring back to their resting position": "节点弹回静止位置的力度",
++    "Spring Limit Rate": "弹簧限制率",
++    "Spring Limit Rate\nVersion 24 and above only": "弹簧限制率\n仅适用于版本 24 及更高版本",
++    "Spring Max Velocity": "弹簧最大速度",
++    "Spring Max Velocity\nVersion 24 and above only": "弹簧最大速度\n仅适用于版本 24 及更高版本",
++    "Spring Calculation Type": "弹簧计算类型",
++    "Spring Calculation Type.\nVersion 24 and above only": "弹簧计算类型。\n仅适用于版本 24 及更高版本",
++    "Wind Delay Type": "风延迟类型",
++    "Version 24 and above": "仅适用于版本 24 及更高版本",
++    "Reduce Self Distance Rate": "自身距离缩减率",
++    "Second Reduce Distance Rate": "第二距离缩减率",
++    "Second Reduce Distance Speed": "第二距离缩减速度",
++    "Friction": "摩擦力",
++    "Shock Absorption Rate": "减震率",
++    "Coefficient Of Elasticity": "弹性系数",
++    "Affects bounciness of spring force": "影响弹簧力的回弹程度",
++    "Coefficient Of External Forces": "外力系数",
++    "Stretch Interaction Ratio": "拉伸交互比率",
++    "Angle Limit Interaction Ratio": "角度限制交互比率",
++    "Group Default Attribute": "组默认属性",
++    "Controls how chain groups interact. Also affects whether nodes can collide": "控制链条组的交互方式，也会影响节点是否可以碰撞",
++    "Wind Effect Coefficient": "风效果系数",
++    "Affects how much stage wind affects chain. NOTE: Applies to chain even if it is not parented to wind settings": "影响场景风对链条的作用程度。注意：即使链条没有父级风设置，也会应用此项",
++    "Velocity Limit": "速度限制",
++    "Hardness": "硬度",
++    "Wind Delay Speed": "风延迟速度",
++    "Capcom Example Values RE4: [0.0]\nVersion 48 and above only": "Capcom RE4 示例值：[0.0]\n仅适用于版本 48 及更高版本",
++    "Env Wind Effect Coefficient": "环境风效果系数",
++    "Capcom Example Values RE4: [0.0, 0.003000000026077032, 0.004999999888241291, 0.009999999776482582, 0.019999999552965164, 0.029999999329447746, 0.03500000014901161, 0.03999999910593033, 0.05000000074505806, 0.10000000149011612, 0.5]\nVersion 48 and above only": "Capcom RE4 示例值：[0.0, 0.003000000026077032, 0.004999999888241291, 0.009999999776482582, 0.019999999552965164, 0.029999999329447746, 0.03500000014901161, 0.03999999910505833, 0.05000000014905806, 0.10000000149011612, 0.5]\n仅适用于版本 48 及更高版本",
++    "Motion Force": "运动力",
++    "Capcom Example Values RE4: [0.0, 1.0, 5.0, 20.0, 30.0, 40.0, 41.0, 45.0, 50.0, 53.0, 60.0, 65.0]\nVersion 52 and above only": "Capcom RE4 示例值：[0.0, 1.0, 5.0, 20.0, 30.0, 40.0, 41.0, 45.0, 50.0, 53.0, 60.0, 65.0]\n仅适用于版本 52 及更高版本",
++    "Motion Force Calculation Type (chain2)": "运动力计算类型（Chain2）",
++    "*This value might not be motion force calc type\nVersion 9 and above": "*此值可能不是运动力计算类型\n仅适用于版本 9 及更高版本",
++    "Sub Group ID": "子组 ID",
++    "Auto Blend Check Node Number": "自动混合检查节点编号",
++    "Attribute Flags": "属性标志",
++    "Controls how collisions will interact with surroundings": "控制碰撞与周围环境的交互方式",
++    "Collision Filter Flags": "碰撞过滤标志",
++    "Tag 0": "标签 0",
++    "Tag 1": "标签 1",
++    "Tag 2": "标签 2",
++    "Tag 3": "标签 3",
++    "Tag 0\nVersion 35 and above only": "标签 0\n仅适用于版本 35 及更高版本",
++    "Tag 1\nVersion 35 and above only": "标签 1\n仅适用于版本 35 及更高版本",
++    "Tag 2\nVersion 35 and above only": "标签 2\n仅适用于版本 35 及更高版本",
++    "Tag 3\nVersion 35 and above only": "标签 3\n仅适用于版本 35 及更高版本",
++    "Hierarchy Hash 0": "层级哈希 0",
++    "Hierarchy Hash 1": "层级哈希 1",
++    "Hierarchy Hash 2": "层级哈希 2",
++    "Hierarchy Hash 3": "层级哈希 3",
++    "Damping Noise 0": "阻尼噪声 0",
++    "Damping Noise 1": "阻尼噪声 1",
++    "End Rotation Constant Max": "末端旋转常量最大值",
++    "Tag Count": "标签数量",
++    "Angle Limit Direction Mode": "角度限制方向模式",
++    "Angle Limit Direction Mode\nVersion 35 and above only": "角度限制方向模式\n仅适用于版本 35 及更高版本",
++    "Collider Quality Level": "碰撞器质量等级",
++    "Version 48 and above only": "仅适用于版本 48 及更高版本",
++    "CLSP Flags A": "CLSP 标志 A",
++    "CLSP Flags B": "CLSP 标志 B",
++    "Bitflag that determines what CLSP Tag Groups to collide with. -1 on files that don't use CLSP.\nVersion 52 and above only": "决定与哪些 CLSP 标签组碰撞的位标志。不使用 CLSP 的文件为 -1。\n仅适用于版本 52 及更高版本",
++    "Interpolation Count (chain2)": "插值数量（Chain2）",
++    "For chain2 only": "仅适用于 Chain2",
++    "Node Interpolation Mode (chain2)": "节点插值模式（Chain2）",
++    "Angle Limit Radius": "角度限制半径",
++    "The amount the node is allowed to rotate from it's angle limit direction": "节点允许偏离角度限制方向的旋转量",
++    "Angle Limit Distance": "角度限制距离",
++    "Angle Limit Restitution": "角度限制恢复",
++    "Angle Limit Restitute Stop Speed": "角度限制恢复停止速度",
++    "Collision Radius": "碰撞半径",
++    "Capsule Stretch Rate 0": "胶囊体拉伸率 0",
++    "Capsule Stretch Rate 1": "胶囊体拉伸率 1",
++    "Wind Coefficient": "风系数",
++    "Angle Mode": "角度模式",
++    "Collision Shape": "碰撞形状",
++    "Attach Type": "附加类型",
++    "Rotation Type": "旋转类型",
++    "Gravity Coefficient": "重力系数",
++    "Version 35 and above only": "仅适用于版本 35 及更高版本",
++    "Constraint Joint Name": "约束关节名称",
++    "Constraint joint, if the bone is not on the armature when the chain is imported, this will be an integer hash value": "约束关节。如果导入链条时骨骼不在骨架中，此处将是整数哈希值",
++    "Joint Name Hash (chain2)": "关节名称哈希（Chain2）",
++    "The default value is a hash of a string that seems to mean None.\nIf a string is entered into this field, it will be hashed upon export": "默认值是一个含义类似 None 的字符串哈希。\n如果在此字段输入字符串，导出时会进行哈希",
++    "Jiggle Spring Force": "摆动弹簧力",
++    "Jiggle Gravity Coefficient": "摆动重力系数",
++    "Jiggle Damping": "摆动阻尼",
++    "Radius": "半径",
++    "Unknown Collision Value": "未知碰撞值",
++    "Unknown Collision Sub Data 0": "未知碰撞子数据 0",
++    "Unknown Collision Sub Data 1": "未知碰撞子数据 1",
++    "Unknown Collision Sub Data 2": "未知碰撞子数据 2",
++    "Unknown Collision Sub Data 3": "未知碰撞子数据 3",
++    "Radius of end of capsule. Collision shape must be set to tapered capsule for this to do anything\nVersion 46 and above only": "胶囊体末端半径。碰撞形状必须设为锥形胶囊体才会生效\n仅适用于版本 46 及更高版本",
++    "Lerp": "插值",
++    "Chain Collision Shape": "链条碰撞形状",
++    "Sub Data Count": "子数据数量",
++    "CLSP BitFlag A": "CLSP 位标志 A",
++    "Flags for exported .clsp files, has no effect on chain files": "导出 .clsp 文件使用的标志，对链条文件无影响",
++    "CLSP BitFlag B": "CLSP 位标志 B",
++    "Chain Group A": "链条组 A",
++    "Chain Group B": "链条组 B",
++    "Distance Shrink Limit Coefficient": "距离收缩限制系数",
++    "Distance Expand Limit Coefficient": "距离扩展限制系数",
++    "Link Mode": "链接模式",
++    "Connection Flags": "连接标志",
++    "Link Attribute Flags": "链接属性标志",
++    "Skip Group A": "跳过组 A",
++    "Skip Group B": "跳过组 B",
++    "Link Rotation Order": "链接旋转顺序",
++
++    # Shared property descriptions and enum item labels.
++    "Apply Data to attribute.": "将数据应用到属性。",
++    "Sphere": "球体",
++    "Capsule": "胶囊体",
++    "Tapered Capsule": "锥形胶囊体",
++    "Plane": "平面",
++    "Line Sphere": "线球",
++    "Lerp Sphere": "插值球",
++    "Any Direction": "任意方向",
++    "Limit Node Direction to Cone": "将节点方向限制在圆锥内",
++    "Hinge on Z Axis": "绕 Z 轴铰接",
++    "Y Axis Compressed": "Y 轴压缩",
++    "Z Axis Compressed": "Z 轴压缩",
++    "Target Armature": "目标骨架",
++    "Chain Name": "链条名称",
++    "The name of the newly created chain collection.\nUse the same name as the mesh file": "新建链条集合的名称。\n请使用与网格文件相同的名称",
++    "File Type": "文件类型",
++    "Old chain file format, use for anything older than MH Wilds/Dead Rising": "旧链条文件格式，用于 MH Wilds/Dead Rising 之前的版本",
++    "New chain file format, use for MH Wilds/Dead Rising and newer": "新链条文件格式，用于 MH Wilds/Dead Rising 及更新版本",
++    "CFIL Type": "CFIL 类型",
++    "Set collider filter info path of chain settings": "设置链条设置的碰撞器过滤信息路径",
++    "MH Wilds Character CFIL": "MH Wilds 角色 CFIL",
++    "DMC5 Character CFIL": "DMC5 角色 CFIL",
++
++    # Add-on updater panels and controls.
++    "Updater Settings": "更新器设置",
++    "Interval between checks": "检查间隔",
++    "Select install version": "选择安装版本",
++    "Update ready!": "更新已就绪！",
++    "Error initializing updater code:": "初始化更新器代码时出错：",
++    "Error getting updater preferences": "获取更新器偏好设置时出错",
++    "Updater module error": "更新器模块错误",
++    "Updater error": "更新器错误",
++    "There was an issue trying to auto-install": "自动安装时出现问题",
++    "Press the download button below and install": "按下方的下载按钮并安装",
++    "the zip file like a normal addon.": "像普通插件一样安装 ZIP 文件。",
++    "Install the addon manually": "手动安装插件",
++    "Error occurred, did not install": "发生错误，未完成安装",
++    "to complete update": "以完成更新",
++    "Last update check: Never": "上次检查更新：从未检查",
++    "Last check: Never": "上次检查：从未检查",
++    "Choose 'Update Now' & press OK to install, ": "选择“立即更新”并按“确定”安装，",
++    "or click outside window to defer": "或点击窗口外部稍后处理",
++    "See source website to download the update": "请访问源网站下载更新",
++    "No updates available": "没有可用更新",
++    "Press okay to dismiss dialog": "按“确定”关闭此对话框",
++    "Check for update now?": "现在检查更新吗？",
++    "Addon restored": "插件已还原",
++    "Addon successfully installed": "插件安装成功",
++    "Consider restarting blender to fully reload.": "建议重启 Blender 以完全重新加载。",
++
++    # Remaining RNA labels and enum items surfaced by the complete 5.2
++    # registration scan.  Binary-facing values are retained in the enum
++    # definitions; these translations only change their display text.
++    "(.3) DD2, MH Wilds, Pragmata": "(.3) DD2、MH Wilds、Pragmata",
++    "-X": "-X",
++    "-Y": "-Y",
++    "-Z": "-Z",
++    "Aligns bone tails to the bone head on the specified axis": "将骨骼尾部沿指定轴对齐到骨骼头部",
++    "Angle Limit": "角度限制",
++    "Angle Limit Color": "角度限制颜色",
++    "Angle Limit Multiplier": "角度限制乘数",
++    "AngleLimitDirectionMode_BasePose": "角度限制方向模式_基础姿态",
++    "AngleLimitDirectionMode_MotionPose": "角度限制方向模式_运动姿态",
++    "AngleLimitRadius": "角度限制半径",
++    "AngleMode_Free": "角度模式_自由",
++    "AngleMode_LimitCone": "角度模式_限制圆锥",
++    "AngleMode_LimitConeBox": "角度模式_限制圆锥盒",
++    "AngleMode_LimitElliptic": "角度模式_椭圆限制",
++    "AngleMode_LimitHinge": "角度模式_限制铰链",
++    "AngleMode_LimitOval": "角度模式_椭圆限制",
++    "Apply Data to attribute.\nVersion 35 and above only": "将数据应用到属性。\n仅适用于版本 35 及更高版本",
++    "Apply Data to attribute.\nVersion 48 and above only": "将数据应用到属性。\n仅适用于版本 48 及更高版本",
++    "AttrFlags_EnableStretch": "属性标志_启用拉伸",
++    "AttrFlags_Null": "属性标志_无",
++    "Auto-check for Update": "自动检查更新",
++    "Base Position (chain2)": "基础位置（Chain2）",
++    "CLSP": "CLSP",
++    "CalculateMode_Balance": "计算模式_平衡",
++    "CalculateMode_Default": "计算模式_默认",
++    "CalculateMode_Performance": "计算模式_性能",
++    "CalculateMode_Quality": "计算模式_质量",
++    "Chain": "链条（Chain）",
++    "Chain Bones": "链条骨骼",
++    "Chain Group Color": "链条组颜色",
++    "Chain Link Color": "链条链接颜色",
++    "Chain collision file format, used in DD2 and MH Wilds.\nFor these games, put all collisions in this collection, otherwise they wont have any effect": "链条碰撞文件格式，用于 DD2 和 MH Wilds。\n对于这些游戏，请将所有碰撞放入此集合，否则不会生效",
++    "Chain2": "链条 2（Chain2）",
++    "ChainAttrFlags_ModelCollisionPreset": "链条属性标志_模型碰撞预设",
++    "ChainAttrFlags_None": "链条属性标志_无",
++    "ChainAttrFlags_UNKN2": "链条属性标志_未知 2",
++    "ChainAttrFlags_UNKN3": "链条属性标志_未知 3",
++    "ChainAttrFlags_UNKN4": "链条属性标志_未知 4",
++    "ChainAttrFlags_UNKN5": "链条属性标志_未知 5",
++    "ChainAttrFlags_UNKN6": "链条属性标志_未知 6",
++    "ChainCollisionShape_Capsule": "链条碰撞形状_胶囊体",
++    "ChainCollisionShape_LerpSphere": "链条碰撞形状_插值球",
++    "ChainCollisionShape_LineSphere": "链条碰撞形状_线球",
++    "ChainCollisionShape_None": "链条碰撞形状_无",
++    "ChainCollisionShape_OBB": "链条碰撞形状_OBB",
++    "ChainCollisionShape_Plane": "链条碰撞形状_平面",
++    "ChainCollisionShape_Sphere": "链条碰撞形状_球体",
++    "ChainCollisionShape_TaperedCapsule": "链条碰撞形状_锥形胶囊体",
++    "ChainJiggleRangeShape_Cone": "链条摆动范围形状_圆锥",
++    "ChainJiggleRangeShape_None": "链条摆动范围形状_无",
++    "ChainJiggleRangeShape_OBB": "链条摆动范围形状_OBB",
++    "ChainJiggleRangeShape_Sphere": "链条摆动范围形状_球体",
++    "ChainNodeCollisionShape_Capsule": "链条节点碰撞形状_胶囊体",
++    "ChainNodeCollisionShape_None": "链条节点碰撞形状_无",
++    "ChainNodeCollisionShape_Sphere": "链条节点碰撞形状_球体",
++    "ChainNodeCollisionShape_StretchCapsule": "链条节点碰撞形状_拉伸胶囊体",
++    "ChainParamFlags_None": "链条参数标志_无",
++    "ChainParamFlags_ReflectEnviromental": "链条参数标志_反射环境",
++    "ChainSpringCalcType_Position": "链条弹簧计算类型_位置",
++    "ChainSpringCalcType_Rotation": "链条弹簧计算类型_旋转",
++    "ChainSpringCalcType_VFRPosition": "链条弹簧计算类型_VFR 位置",
++    "ChainSpringCalcType_VFRRotation": "链条弹簧计算类型_VFR 旋转",
++    "ChainType_Chain": "链条类型_链条",
++    "ChainType_Shooter": "链条类型_射击器",
++    "Choose which chain setting the newly created subgroup will use": "选择新建子组使用的链条设置",
++    "Collision Character": "碰撞角色",
++    "Collision Collider": "碰撞器",
++    "Collision Color": "碰撞颜色",
++    "Collision Default": "碰撞默认",
++    "Collision Group": "碰撞组",
++    "Collision Model": "碰撞模型",
++    "Collision Offset": "碰撞偏移",
++    "Collision Self": "碰撞自身",
++    "Collision VGround": "碰撞虚拟地面",
++    "ConnectionFlags_Bottom": "连接标志_下方",
++    "ConnectionFlags_Neighbour": "连接标志_相邻",
++    "ConnectionFlags_UNKNOWNFLAG_7": "连接标志_未知标志 7",
++    "ConnectionFlags_Upper": "连接标志_上方",
++    "Damping Noise 0\nVersion 35 and above only": "阻尼噪声 0\n仅适用于版本 35 及更高版本",
++    "Damping Noise 1\nVersion 35 and above only": "阻尼噪声 1\n仅适用于版本 35 及更高版本",
++    "Days": "天",
++    "Dead Rising": "丧尸围城",
++    "Decide to install, ignore, or defer new addon update": "决定安装、忽略或延后新的插件更新",
++    "Default": "默认",
++    "Devil May Cry 5 /  RE2": "Devil May Cry 5 /  RE2",
++    "Devil May Cry 5 / Resident Evil 2": "Devil May Cry 5 / Resident Evil 2",
++    "Direction 0": "方向 0",
++    "Direction 1": "方向 1",
++    "Direction 2": "方向 2",
++    "Direction 3": "方向 3",
++    "Direction 4": "方向 4",
++    "DirectionOfEmission_Global": "发射方向_全局",
++    "DirectionOfEmission_GroupLocal": "发射方向_组局部",
++    "DirectionOfEmission_Local": "发射方向_局部",
++    "Do not change this value manually, set it from the chain object": "不要手动更改此值，请从链条对象设置",
++    "Dragon's Dogma 2": "龙之信条 2",
++    "Dragon's Dogma 2, MH Wilds, Pragmata": "Dragon's Dogma 2、MH Wilds、Pragmata",
++    "Enable Env Wind": "启用环境风",
++    "Enable Part Blend": "启用部件混合",
++    "End Collision Offset": "末端碰撞偏移",
++    "End Object": "末端对象",
++    "End Radius": "末端半径",
++    "End Rot Constraint": "末端旋转约束",
++    "End Rotation Constant Max\nVersion 35 and above only": "末端旋转常量最大值\n仅适用于版本 35 及更高版本",
++    "Enter Chain Name": "输入链条名称",
++    "Enter Preset Name": "输入预设名称",
++    "ErrFlags_Empty": "错误标志_空",
++    "ErrFlags_None": "错误标志_无",
++    "ErrFlags_NotFoundIncludeAsset": "错误标志_未找到包含资产",
++    "ErrFlags_NotFoundRefAsset": "错误标志_未找到引用资产",
++    "Error Occurred": "发生错误",
++    "Extra Node": "额外节点",
++    "Extra Node Local Pos": "额外节点局部位置",
++    "File Path": "文件路径",
++    "For chain only": "仅适用于 Chain",
++    "For chain2 files only": "仅适用于 Chain2 文件",
++    "Frame Orientation": "框架方向",
++    "Geometry": "几何体",
++    "Gravity": "重力",
++    "HighFpsCalculateMode_Default": "高 FPS 计算模式_默认",
++    "HighFpsCalculateMode_LimitedVariableStepTime": "高 FPS 计算模式_受限可变步长时间",
++    "HighFpsCalculateMode_VariableStepTime": "高 FPS 计算模式_可变步长时间",
++    "HitFlags_Angle": "命中标志_角度",
++    "HitFlags_Collider": "命中标志_碰撞器",
++    "HitFlags_Collision": "命中标志_碰撞",
++    "HitFlags_Group": "命中标志_组",
++    "HitFlags_Model": "命中标志_模型",
++    "HitFlags_None": "命中标志_无",
++    "HitFlags_Self": "命中标志_自身",
++    "HitFlags_UNKNFLAG12": "命中标志_未知标志 12",
++    "HitFlags_VGround": "命中标志_虚拟地面",
++    "Hours": "小时",
++    "If enabled, auto-check for updates using an interval": "启用后按设定间隔自动检查更新",
++    "If enabled, completely clear the addon's folder before installing new update, creating a fresh install": "启用后，在安装新更新前完全清空插件文件夹，以进行全新安装",
++    "Ignore Same Group Collision": "忽略同组碰撞",
++    "Install update now": "立即安装更新",
++    "Jiggle": "摆动",
++    "LegacyVersion_Latest": "旧版版本_最新",
++    "LegacyVersion_Legacy1": "旧版版本_旧版 1",
++    "Likely a flag": "可能是标志",
++    "Link Collision Color": "链接碰撞颜色",
++    "LinkMode_BottomToTop": "链接模式_从下到上",
++    "LinkMode_Manual": "链接模式_手动",
++    "LinkMode_TopToBottom": "链接模式_从上到下",
++    "Max Angle Limit": "最大角度限制",
++    "Max Iteration": "最大迭代次数",
++    "Minutes": "分钟",
++    "Monster Hunter Rise": "怪物猎人：崛起",
++    "Monster Hunter Wilds": "怪物猎人：荒野",
++    "Months": "月",
++    "MotionForceCalcType_InitShapeForce": "运动力计算类型_初始形状力",
++    "MotionForceCalcType_MotionForce": "运动力计算类型_运动力",
++    "Multiply the angle limit values of the chain group by this value.\nSet to 1.0 to keep angle limits the same": "将链条组的角度限制值乘以此值。\n设为 1.0 可保持角度限制不变",
++    "Muzzle Velocity": "枪口速度",
++    "NodeInterpolationMode_FastSpline": "节点插值模式_快速样条",
++    "NodeInterpolationMode_Linear": "节点插值模式_线性",
++    "NodeInterpolationMode_None": "节点插值模式_无",
++    "NodeInterpolationMode_SplineLerp": "节点插值模式_样条插值",
++    "Number of days between checking for updates": "检查更新的间隔天数",
++    "Number of hours between checking for updates": "检查更新的间隔小时数",
++    "Number of minutes between checking for updates": "检查更新的间隔分钟数",
++    "Number of months between checking for updates": "检查更新的间隔月数",
++    "OBB": "OBB",
++    "Override Damping": "覆盖阻尼",
++    "Parent Chain Group": "父链条组",
++    "Part Motion Blend": "部件运动混合",
++    "Position Maybe (Always (0.0,0.0,0.0))": "位置（可能；始终为 (0.0,0.0,0.0)）",
++    "Pragmata": "Pragmata",
++    "Process update": "处理更新",
++    "Quaternion Maybe (Always (0.0,0.0,0.0,1.0))": "四元数（可能；始终为 (0.0,0.0,0.0,1.0)）",
++    "RE3 / Resistance": "RE3 / Resistance",
++    "RE:Verse": "RE:Verse",
++    "REChainGeometryNodes": "REChainGeometryNodes",
++    "Resident Evil 2/3/7 Ray Tracing": "Resident Evil 2/3/7 Ray Tracing",
++    "Resident Evil 2/3/7 Ray Tracing Update": "Resident Evil 2/3/7 Ray Tracing 更新",
++    "Resident Evil 3 / RE Resistance": "Resident Evil 3 / RE Resistance",
++    "Resident Evil 4 Remake": "Resident Evil 4 Remake",
++    "Resident Evil 8": "生化危机 8",
++    "Resident Evil 9 / Monster Hunter Stories 3": "Resident Evil 9 / Monster Hunter Stories 3",
++    "Root Rotation": "根旋转",
++    "Rotation Offset": "旋转偏移",
++    "RotationOrder_XYZ": "旋转顺序_XYZ",
++    "RotationOrder_XZY": "旋转顺序_XZY",
++    "RotationOrder_YXZ": "旋转顺序_YXZ",
++    "RotationOrder_YZX": "旋转顺序_YZX",
++    "RotationOrder_ZXY": "旋转顺序_ZXY",
++    "RotationOrder_ZYX": "旋转顺序_ZYX",
++    "Scale Animation": "缩放动画",
++    "Select the chain setting to use for a newly created chain group. You can create a new chain setting by pressing the + button": "选择新建链条组使用的链条设置。可以按 + 按钮创建新的链条设置",
++    "Set collision rotation (Quaternion)": "设置碰撞旋转（四元数）",
++    "Set the ID of the chain settings. Note that ID conflicts are resolved automatically upon export, so changing it is not necessary": "设置链条设置的 ID。注意：导出时会自动解决 ID 冲突，因此无需更改",
++    "Set the ID of the wind settings. Note that ID conflicts are resolved automatically upon export, so changing it is not necessary": "设置风设置的 ID。注意：导出时会自动解决 ID 冲突，因此无需更改",
++    "Set the chain group that this subgroup belongs to": "设置此子组所属的链条组",
++    "Set the collection containing the chain file to edit.\nHint: Chain collections are orange.\nYou can create a new chain collection by pressing the \"Create Chain Header\" button.\nThis can also be set to a .clsp collection to create collisions for .clsp files": "设置包含要编辑链条文件的集合。\n提示：链条集合为橙色。\n可以按“创建链条头”按钮创建新的链条集合。\n也可以设置为 .clsp 集合，以便为 .clsp 文件创建碰撞",
++    "Set the collision offset from the end bone for collision capsules": "设置碰撞胶囊体相对于末端骨骼的偏移",
++    "Set the positional offset of the collision from the bone": "设置碰撞相对于骨骼的位置偏移",
++    "Start Object": "起始对象",
++    "Street Fighter 6": "街头霸王 6",
++    "Stretch Both": "两端拉伸",
++    "Stretch Both Auto Scale": "两端拉伸自动缩放",
++    "Sub Group Color": "子组颜色",
++    "Tag Count\nVersion 35 and above only": "标签数量\n仅适用于版本 35 及更高版本",
++    "Tail Align Axis": "尾部对齐轴",
++    "The ID to assign to this sub group. If the chosen ID is already in use, the next unused subgroup ID will be used": "分配给此子组的 ID。如果所选 ID 已被使用，将使用下一个未使用的子组 ID",
++    "The amount of chain nodes until the angle limit radius is at it's maximum value": "达到角度限制半径最大值前的链条节点数量",
++    "The maximum angle limit radius after the max iteration number is reached. For example, if the max angle limit is 60 and the max iteration is 4, the first node angle limit will be 15, the second will be 30 and so on. Once the max iteration is reached, all nodes after that will be the max angle limit value": "达到最大迭代次数后的最大角度限制半径。例如最大角度限制为 60、最大迭代次数为 4 时，第一个节点角度限制为 15，第二个为 30，依此类推。达到最大迭代次数后，后续所有节点都使用最大角度限制值",
++    "Trans Animation": "平移动画",
++    "Unknown 0": "未知 0",
++    "Unknown 1": "未知 1",
++    "Use Bit Flag": "使用位标志",
++    "Use Reduce Distance Curve": "使用距离缩减曲线",
++    "Values": "值",
++    "Virtual Ground Root": "虚拟地面根",
++    "Virtual Ground Target": "虚拟地面目标",
++    "Wind Default": "默认风",
++    "WindDelayType_Auto": "风延迟类型_自动",
++    "WindDelayType_Manual": "风延迟类型_手动",
++    "WindDelayType_None": "风延迟类型_无",
++    "WindDirection_Global": "风方向_全局",
++    "WindDirection_Local": "风方向_局部",
++    "WindType_GravityWave": "风类型_重力波",
++    "WindType_None": "风类型_无",
++    "WindType_WindOrSpring": "风类型_风或弹簧",
++    "WindType_WindWave": "风类型_风波",
++    "X": "X",
++    "Y": "Y",
++    "Z": "Z",
++    "chainFromBoneLabelName": "从骨骼创建链条按钮标签",
++
++    # Update-dialog controls and explicit file-menu button text.
++    "(Re)install addon version": "（重新）安装插件版本",
++    "(failed to retrieve direct download)": "（无法获取直接下载链接）",
++    "Addon is up to date": "插件已是最新版本",
++    "Checking...": "正在检查……",
++    "Clean install": "全新安装",
++    "Click for manual download.": "点击手动下载。",
++    "Defer": "稍后处理",
++    "Defer choice till next blender session": "将选择延后到下次 Blender 会话",
++    "Direct download": "直接下载",
++    "Get it now": "立即获取",
++    "Ignore": "忽略",
++    "Ignore this update to prevent future popups": "忽略此更新以阻止今后弹出提示",
++    "Install manually": "手动安装",
++    "Open website": "打开网站",
++    "RE CLSP (.clsp.x) (Collisions)": "RE CLSP（.clsp.x）（碰撞）",
++    "RE Chain (.chain.x) (Physics)": "RE Chain（.chain.x）（物理）",
++    "RE Chain2 (.chain2.x) (Physics) (New)": "RE Chain2（.chain2.x）（物理）（新）",
++    "Restart blender": "重启 Blender",
++    "Restart blender to complete update": "重启 Blender 以完成更新",
++    "Restart blender to reload": "重启 Blender 以重新加载",
++    "Select the version to install": "选择要安装的版本",
++    "Target version to install": "要安装的目标版本",
++    "Update": "更新",
++    "Update Now": "立即更新",
++}
++
++
++# Operator labels, descriptions and messages shown in reports/popups use the
++# explicit ``Operator`` context.  Keeping these separate prevents a generic
++# UI phrase from shadowing an operator-specific translation.
++operator_translations = {
++    "Create Chain From Bone": "从骨骼创建链条",
++    "Create new chain group and chain node objects starting from the selected bone and ending at the last child bone. Note that chains cannot be branching. Must be parented to a chain settings object": "从所选骨骼开始，在末级子骨骼结束，创建新的链条组和链条节点对象。注意：链条不能分支。必须设为链条设置对象的子级",
++    "Create Collision From Bone": "从骨骼创建碰撞",
++    "Create collision object from selected bone(s). Select one bone to create a sphere and two bones to create a collision capsule": "从所选骨骼创建碰撞对象。选择一根骨骼创建球体，选择两根骨骼创建碰撞胶囊体",
++    "Create Chain Header": "创建链条头",
++    "Create a chain header object. All chain objects must be parented to this. A new chain collection will be created": "创建链条头对象。所有链条对象都必须设为其子级。将创建新的链条集合",
++    "Create Chain Settings": "创建链条设置",
++    "Create a chain settings object. Contains parameters to determine how chain groups should behave. Must be parented to either a chain header or wind settings object": "创建链条设置对象。包含决定链条组行为的参数。必须设为链条头或风设置对象的子级",
++    "Create Wind Settings": "创建风设置",
++    "Create a wind settings object. Allows for wind effects on chain groups. For wind to take effect, chain settings objects must be parented to this. Must be parented to a chain header": "创建风设置对象。允许对链条组施加风效果。要使风生效，链条设置对象必须设为其子级。必须设为链条头的子级",
++    "Create Chain Jiggle": "创建链条摆动",
++    "Create a chain jiggle object. Adds special jiggle simulation to its chain node parent.\nJiggle range is controlled by the location and scale of the object.\nCan be used on chain versions 35+.\nA chain node must be selected": "创建链条摆动对象。为其链条节点父级添加特殊摆动模拟。\n摆动范围由对象的位置和缩放控制。\n可用于版本 35 及更高版本。\n必须选择链条节点",
++    "Create Chain Link": "创建链条链接",
++    "Create a chain link object to make two chain groups move together. Must be parented to a chain header.\nTwo chain groups must be selected to create a chain link": "创建链条链接对象，使两个链条组同步移动。必须设为链条头的子级。\n必须选择两个链条组才能创建链条链接",
++    "Create Chain Link Collision": "创建链条链接碰撞",
++    "Adds collision to the selected chain link(s).\nBoth chain groups must have the same amount of bones and cannot contain branching bones": "为所选链条链接添加碰撞。\n两个链条组必须拥有相同数量的骨骼且不能包含分支骨骼",
++    "Copy": "复制",
++    "Copy properties from a chain object": "复制链条对象的属性",
++    "Paste": "粘贴",
++    "Paste properties from a chain object to selected objects. The type of chain object must be the same as the object copied from": "将链条对象属性粘贴到所选对象。链条对象类型必须与复制来源相同",
++    "Align Chains to Bones": "将链条对齐到骨骼",
++    "Reset node positions to align to bones. Also synchronizes collision offsets with their location": "重置节点位置以对齐骨骼，同时将碰撞偏移与其位置同步",
++    "Align Angle Limits to Next Node": "将角度限制对齐到下一个节点",
++    "Aligns each angle limit direction with the next node in the chain. Note that additional adjustments may be required for the angle limit to work properly. You can select chain group objects to alter only specific groups": "将每个角度限制方向与链条中的下一个节点对齐。注意：角度限制可能需要额外调整才能正常工作。可以选择链条组对象，仅修改指定组",
++    "Point Frame to Selected": "将框架指向所选对象",
++    "Apply Chain Settings Preset": "应用链条设置预设",
++    "Apply preset to selected chain settings objects": "将预设应用到所选链条设置对象",
++    "Apply Chain Group Preset": "应用链条组预设",
++    "Apply preset to selected chain group objects": "将预设应用到所选链条组对象",
++    "Apply Chain Node Preset": "应用链条节点预设",
++    "Apply preset to selected chain node objects. Note that frame orientations are not changed by presets": "将预设应用到所选链条节点对象。注意：预设不会更改框架方向",
++    "Apply Wind Settings Preset": "应用风设置预设",
++    "Apply preset to selected wind settings objects": "将预设应用到所选风设置对象",
++    "Open Preset Folder": "打开预设文件夹",
++    "Opens the preset folder in File Explorer": "在文件资源管理器中打开预设文件夹",
++    "Save Selected As Preset": "将选中项保存为预设",
++    "Save selected chain object as a preset for easy reuse and sharing. Presets can be accessed using the Open Preset Folder button": "将所选链条对象保存为预设，方便重复使用和分享。可以使用“打开预设文件夹”按钮访问预设",
++    "Create Bone Group From Chains": "从链条创建骨骼组",
++    "Creates a bone group on the armature of all chain bones and colors them.\nNOTE: In Blender 4.0+, bone groups don't exist anymore so this will only color the bones": "在骨架中为所有链条骨骼创建骨骼组并设置颜色。\n注意：Blender 4.0+ 已不再提供骨骼组，因此此功能只会设置骨骼颜色",
++    "Switch to Pose Mode": "切换到姿态模式",
++    "Switch to Pose Mode to add new chain bones and chain collisions": "切换到姿态模式以添加新的链条骨骼和链条碰撞",
++    "Switch to Object Mode": "切换到物体模式",
++    "Switch to Object Mode to configure chain objects": "切换到物体模式以配置链条对象",
++    "Hide Non Nodes": "隐藏非节点对象",
++    "Hide all objects that aren't chain nodes to make selecting and configuring them easier. Press the \"Unhide All\" button to unhide or check the Viewports box in the Object tab under Visibility": "隐藏所有非链条节点对象，以便选择和配置。点击“全部取消隐藏”按钮，或在物体选项卡的可见性中勾选视口",
++    "Hide Non Collisions": "隐藏非碰撞对象",
++    "Hide all objects that aren't collision spheres or capsules to make selecting and configuring them easier. Press the \"Unhide All\" button to unhide or check the Viewports box in the Object tab under Visibility": "隐藏所有非碰撞球体或胶囊体对象，以便选择和配置。点击“全部取消隐藏”按钮，或在物体选项卡的可见性中勾选视口",
++    "Hide Non Angle Limits": "隐藏非角度限制对象",
++    "Hide all objects that aren't chain node angle limits to make selecting and configuring them easier. Press the \"Unhide All\" button to unhide or check the Viewports box in the Object tab under Visibility": "隐藏所有非链条节点角度限制对象，以便选择和配置。点击“全部取消隐藏”按钮，或在物体选项卡的可见性中勾选视口",
++    "Unhide All": "全部取消隐藏",
++    "Unhide all objects hidden with \"Hide Non Nodes\" or \"Hide Non Angle Limits\"": "取消隐藏由“隐藏非节点对象”或“隐藏非角度限制对象”隐藏的所有对象",
++    "Rename Bone Chain": "重命名骨骼链条",
++    "Renames all bones that are a child of the selected bone. The bones cannot be branching. Note that chain bone names are not signifcant, they can be named in any way and still work": "重命名所选骨骼的所有子骨骼。骨骼不能分支。注意：链条骨骼名称不影响功能，可以任意命名",
++    "Apply Angle Limit Ramp": "应用角度限制渐变",
++    "Apply an increasing angle limit on each chain node as it gets further away.\nA chain group must be selected. If multiple chain groups are selected, the angle limits will be applied to all of them": "随着节点距离增加，为每个链条节点应用递增的角度限制。\n必须选择链条组。选择多个链条组时，会对全部组应用角度限制",
++    "Align Tails to Axis": "将骨骼尾部对齐到轴",
++    "Aligns all bones that are a child of the selected bone to a specified axis. This is how Capcom usually has their chain bones and it may help you get a better result with angle limits": "将所选骨骼的所有子骨骼对齐到指定轴。这是 Capcom 常用的链条骨骼布局，可能有助于获得更好的角度限制效果",
++    "Create Chain Sub Group": "创建链条子组",
++    "Create a sub group from a chain group. Sub groups allow for a chain group to use a different set of chain settings and node parameters dependent on it's Sub Group ID.\nA chain group must be selected": "从链条组创建子组。子组允许链条组根据子组 ID 使用不同的链条设置和节点参数。\n必须选择链条组",
++    "Set Attribute Flag": "设置属性标志",
++    "Set chain group attribute flags": "设置链条组属性标志",
++    "Set Node Attribute Flag": "设置节点属性标志",
++    "Set chain node attribute flags": "设置链条节点属性标志",
++    "Set Settings Attribute Flag": "设置设置属性标志",
++    "Set chain settings attribute flags": "设置链条设置属性标志",
++    "Set Jiggle Attribute Flag": "设置摆动属性标志",
++    "Set chain jiggle attribute flags": "设置链条摆动属性标志",
++    "Set CFIL Path": "设置 CFIL 路径",
++    "Choose .cfil path from list of known paths.\nNote that if this file does not exist for the game you're modding, the game will infinitely load": "从已知路径列表选择 .cfil 路径。\n注意：如果此文件在目标游戏中不存在，游戏将无限加载",
++
++    # Main reports and dynamic report templates.
++    "Created chain group from bone.": "已从骨骼创建链条组。",
++    "No chain group was created because the active chain collection is not set.": "未创建链条组，因为尚未设置当前链条集合。",
++    "Created collision from bone.": "已从骨骼创建碰撞。",
++    "No collision was created because the active chain collection is not set.": "未创建碰撞，因为尚未设置当前链条集合。",
++    "Created new RE chain collection.": "已创建新的 RE 链条集合。",
++    "Invalid chain collection name.": "链条集合名称无效。",
++    "Created chain settings object.": "已创建链条设置对象。",
++    "No chain settings object was created because the active chain collection is not set.": "未创建链条设置对象，因为尚未设置当前链条集合。",
++    "Created wind settings object.": "已创建风设置对象。",
++    "No wind settings object was created because the active chain collection is not set.": "未创建风设置对象，因为尚未设置当前链条集合。",
++    "Created chain jiggle object.": "已创建链条摆动对象。",
++    "No chain jiggle object was created because the active chain collection is not set.": "未创建链条摆动对象，因为尚未设置当前链条集合。",
++    "Created chain link object.": "已创建链条链接对象。",
++    "No chain link object was created because the active chain collection is not set.": "未创建链条链接对象，因为尚未设置当前链条集合。",
++    "Created chain link collision.": "已创建链条链接碰撞。",
++    "The chain groups do not have the same amount of bones or are not set in the chain link.": "链条组的骨骼数量不同，或未在链条链接中设置。",
++    "Copied properties of {} object to clipboard.": "已将 {} 对象的属性复制到剪贴板。",
++    "Pasted properties of {} object from clipboard.": "已从剪贴板粘贴 {} 对象的属性。",
++    "Aligned chain objects to bones.": "已将链条对象对齐到骨骼。",
++    "Aligned angle limit directions.": "已对齐角度限制方向。",
++    "Applied chain settings preset.": "已应用链条设置预设。",
++    "Applied chain group preset.": "已应用链条组预设。",
++    "Applied chain node preset.": "已应用链条节点预设。",
++    "Applied wind settings preset.": "已应用风设置预设。",
++    "Saved preset.": "已保存预设。",
++    "More than one armature was found in the scene. Select an armature before using this button.": "场景中找到多个骨架。使用此按钮前请先选择一个骨架。",
++    "Created bone group on armature from chain bones.": "已根据链条骨骼在骨架中创建骨骼组。",
++    "No armatures were found in the scene.": "场景中未找到骨架。",
++    "Hid all non chain node objects.": "已隐藏所有非链条节点对象。",
++    "Hid all non collision objects.": "已隐藏所有非碰撞对象。",
++    "Hid all non chain angle limit objects.": "已隐藏所有非链条角度限制对象。",
++    "Unhid all objects.": "已取消隐藏所有对象。",
++    "Renamed bone chain.": "已重命名骨骼链条。",
++    "Applied angle limit ramp to selected chain group(s).": "已对所选链条组应用角度限制渐变。",
++    "Aligned bone tails to axis.": "已将骨骼尾部对齐到轴。",
++    "Created chain subgroup.": "已创建链条子组。",
++    "Set attribute flags.": "已设置属性标志。",
++    "Set cfil path flags.": "已设置 CFIL 路径标志。",
++    "No chains found in selection or collection.": "所选对象或集合中未找到链条。",
++    "Must select a chain node in order to apply the preset to it.": "必须选择链条节点才能应用预设。",
++    "Select only the chain start bone.": "只能选择链条起始骨骼。",
++    "Cannot have branching bones in a chain.": "链条不能包含分支骨骼。",
++    "Chain Group object(s) must be selected to apply an angle limit ramp.": "必须选择链条组对象才能应用角度限制渐变。",
++    "Select one bone to make a sphere or two to make a capsule.": "选择一根骨骼创建球体，或选择两根骨骼创建胶囊体。",
++    "The contents stored in the clipboard can't be applied to the selected object.": "剪贴板中的内容无法应用到所选对象。",
++    "Must select pose bones to create a chain from selection.": "必须选择姿态骨骼才能从选择创建链条。",
++    "A chain object must be selected.": "必须选择链条对象。",
++    "Chain Group object(s) must be selected to create a sub group.": "必须选择链条组对象才能创建子组。",
++    "Failed to import RE Chain. Make sure the mesh file is imported.": "导入 RE Chain 失败。请确认网格文件已导入。",
++    "Exported RE Chain successfully.": "RE Chain 导出成功。",
++    "RE Chain export failed. See Window > Toggle System Console for details.": "RE Chain 导出失败。请在“窗口 > 切换系统控制台”中查看详情。",
++    "Failed to import RE CLSP. Make sure the armature for the mesh is imported.": "导入 RE CLSP 失败。请确认网格对应的骨架已导入。",
++    "Exported RE CLSP successfully.": "RE CLSP 导出成功。",
++    "RE CLSP export failed. See Window > Toggle System Console for details.": "RE CLSP 导出失败。请在“窗口 > 切换系统控制台”中查看详情。",
++    "Chain file path is missing number extension. Cannot export.": "链条文件路径缺少数字扩展名，无法导出。",
++    "CLSP file path is missing number extension. Cannot export.": "CLSP 文件路径缺少数字扩展名，无法导出。",
++
++    # Updater operator labels/reports.
++    "Update {x} addon": "更新 {x} 插件",
++    "Popup to check and display current updates available": "检查并显示当前可用更新的弹窗",
++    "Check now for an update to the {} addon": "立即检查 {} 插件的更新",
++    "Check now for {x} addon": "立即检查 {x} 插件的更新",
++    "Update {x} addon now": "立即更新 {x} 插件",
++    "Update to the latest version of the {x} addon": "更新到 {x} 插件的最新版本",
++    "Install update manually": "手动安装更新",
++    "Proceed to manually install update": "继续手动安装更新",
++    "Installation Report": "安装报告",
++    "Update installation response": "更新安装响应",
++    "Restore backup": "还原备份",
++    "Restore addon from backup": "从备份还原插件",
++    "Ignore update": "忽略更新",
++    "Ignore update to prevent future popups": "忽略更新以阻止今后弹出提示",
++    "End background check": "结束后台检查",
++    "Stop checking for update in the background": "停止在后台检查更新",
++    "Nothing to update": "没有需要更新的内容",
++    "No update ready": "没有就绪的更新",
++    "Encountered a problem while trying to update": "更新时出现问题",
++}
++
++
++def _build_language_table():
++    """Build independent language dictionaries for Blender's registry."""
++    table = {}
++    for language in LANGUAGES:
++        # Blender does not fall back from an explicit ``Operator`` context to
++        # ``*``.  Register interface/operator labels in both contexts so the
++        # same source string remains translated when Blender asks for it from
++        # a file menu, operator button, tooltip, or RNA panel.
++        entries = {("*", source): target for source, target in interface_translations.items()}
++        entries.update({("Operator", source): target for source, target in interface_translations.items()})
++        entries.update({("*", source): target for source, target in operator_translations.items()})
++        entries.update({("Operator", source): target for source, target in operator_translations.items()})
++        table[language] = entries
++    return table
++
++
++translations_dict = _build_language_table()
++
++
++def register():
++    """Register translations for this add-on only."""
++    bpy.app.translations.register(__name__, translations_dict)
++
++
++def unregister():
++    """Unregister translations without touching Blender preferences."""
++    bpy.app.translations.unregister(__name__)
++
++
++def interface(message, *args, context="*", **kwargs):
++    """Translate a dynamic interface string, preserving English as fallback."""
++    translated = pgettext_iface(message, context)
++    return translated.format(*args, **kwargs) if (args or kwargs) else translated
++
++
++def tip(message, *args, context="Operator", **kwargs):
++    """Translate a dynamic operator tooltip/popup string."""
++    translated = pgettext_tip(message, context)
++    return translated.format(*args, **kwargs) if (args or kwargs) else translated
++
++
++def report(message, *args, **kwargs):
++    """Translate an operator report using Blender's ``Operator`` context."""
++    return tip(message, *args, context="Operator", **kwargs)
++
++
++__all__ = (
++    "LANGUAGES",
++    "interface_translations",
++    "operator_translations",
++    "translations_dict",
++    "register",
++    "unregister",
++    "interface",
++    "tip",
++    "report",
++)

@@ -1,28 +1,48 @@
-diff --git a/.gitignore b/.gitignore
-index 6c6c70a..4bcdd13 100644
---- a/.gitignore
-+++ b/.gitignore
-@@ -1,4 +1,6 @@
- *.pyc
-+*_updater/
-+TextureCache/
- # Spyder project settings
- .spyderproject
- .spyproject
 diff --git a/__init__.py b/__init__.py
-index b713bed..819b7d3 100644
+index b713bed..6138ff2 100644
 --- a/__init__.py
 +++ b/__init__.py
-@@ -2,7 +2,7 @@
+@@ -2,17 +2,18 @@
  bl_info = {
  	"name": "RE Mesh Editor",
  	"author": "NSA Cloud",
 -	"version": (0, 66),
-+	"version": (0, 66, 1),
++	"version": (0, 66, 2),
  	"blender": (4, 3, 2),
  	"location": "File > Import-Export",
  	"description": "Import and export RE Engine Mesh files natively into Blender. No Noesis required.",
-@@ -285,6 +285,7 @@ class ChunkPathPropertyGroup(bpy.types.PropertyGroup):
+ 	"warning": "",
+-	"wiki_url": "https://github.com/NSACloud/RE-Mesh-Editor",
+-	"tracker_url": "https://github.com/NSACloud/RE-Mesh-Editor/issues",
++	"wiki_url": "https://github.com/yequ172672/RE-Mesh-Editor-5.2-CN/tree/feat/onimusha-wots",
++	"tracker_url": "https://github.com/yequ172672/RE-Mesh-Editor-5.2-CN/issues",
+ 	"category": "Import-Export"}
+ 
+ import bpy
+ from . import addon_updater_ops
++from . import translations
+ from datetime import datetime
+ import os
+ from bpy_extras.io_utils import ExportHelper,ImportHelper
+@@ -203,7 +204,7 @@ def showMessageBox(message = "", title = "Message Box", icon = 'INFO'):
+ 	def draw(self, context):
+ 		self.layout.label(text = message)
+ 
+-	bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
++	bpy.context.window_manager.popup_menu(draw, title = translations.pgettext_iface(title), icon = icon)
+ 
+ def setModDirectoryFromFilePath(filePath):
+ 	if "re_chunk_000" not in filePath and "re_dlc_stm" not in filePath and "natives" in filePath:
+@@ -262,7 +263,7 @@ class WM_OT_ClearTextureCacheFolder(Operator):
+ 				os.remove(path)
+ 			except Exception as err:
+ 				print(f"Failed to delete {path} - {str(err)}")
+-		self.report({"INFO"},"Cleared texture cache.")
++		self.report({"INFO"},translations.pgettext_tip("Cleared texture cache."))
+ 		checkTextureCacheSize()
+ 		return {'FINISHED'}
+ 
+@@ -285,6 +286,7 @@ class ChunkPathPropertyGroup(bpy.types.PropertyGroup):
  		("KG", "Kunitsu-Gami", ""),
  		("DR", "Dead Rising", ""),
  		("ONI2", "Onimusha 2", ""),
@@ -30,7 +50,36 @@ index b713bed..819b7d3 100644
  		("MHWILDS", "Monster Hunter Wilds", ""),
  		("PRAG", "Pragmata", ""),
  		("MHS3", "Monster Hunter Stories 3", ""),
-@@ -948,6 +949,7 @@ class ExportREMesh(Operator, ExportHelper):
+@@ -604,9 +606,9 @@ class REMeshPreferences(AddonPreferences):
+ 		row = box.row()
+ 		if self.textureCacheCheckDate == "":
+ 			checkTextureCacheSize()
+-		row.label(text=f"Cache Size: {self.textureCacheSizeString}")
++		row.label(text=translations.ifacef("Cache Size: {value}", value=self.textureCacheSizeString))
+ 		row.operator("re_mesh.check_texture_cache_size",icon = "FILE_REFRESH",text = "")
+-		box.label(text=f"Last Checked: {self.textureCacheCheckDate}")
++		box.label(text=translations.ifacef("Last Checked: {value}", value=self.textureCacheCheckDate))
+ 		
+ 		
+ 		
+@@ -886,13 +888,13 @@ class ImportREMesh(Operator, ImportHelper):
+ 				
+ 				
+ 			if not multiFileImport:
+-				self.report({"INFO"},"Imported RE Mesh file.")
++				self.report({"INFO"},translations.pgettext_tip("Imported RE Mesh file."))
+ 			else:
+-				self.report({"INFO"},f"Imported {str(len(self.files))} RE Mesh files.")
++				self.report({"INFO"},translations.tipf("Imported {count} RE Mesh files.", count=len(self.files)))
+ 			
+ 			return {"FINISHED"}
+ 		else:
+-			self.report({"INFO"},"Failed to import RE Mesh. Check the console for errors.")
++			self.report({"INFO"},translations.pgettext_tip("Failed to import RE Mesh. Check the console for errors."))
+ 			return {"CANCELLED"}
+ 	
+ 	def invoke(self, context, event):
+@@ -948,6 +950,7 @@ class ExportREMesh(Operator, ExportHelper):
  				(".240306278", "Kunitsu-Gami", "Kunitsu-Gami"),
  				(".240424828", "Dead Rising", "Dead Rising"),
  				(".240827123", "Onimusha 2", "Onimusha 2"),
@@ -38,7 +87,50 @@ index b713bed..819b7d3 100644
  				(".241111606", "Monster Hunter Wilds", "Monster Hunter Wilds"),
  				#(".250925211", "Resident Evil 9 / Pragmata", "Resident Evil 9 / Pragmata"),
  				(".250925211", "Resident Evil 9", "Resident Evil 9"),
-@@ -1216,7 +1218,9 @@ class ExportREMDF(bpy.types.Operator, ExportHelper):
+@@ -1091,7 +1094,7 @@ class ExportREMesh(Operator, ExportHelper):
+ 		try:
+ 			meshVersion = int(os.path.splitext(self.filepath)[1].replace(".",""))
+ 		except:
+-			self.report({"INFO"},"Mesh file path is missing number extension. Cannot export.")
++			self.report({"INFO"},translations.pgettext_tip("Mesh file path is missing number extension. Cannot export."))
+ 			return{"CANCELLED"}
+ 		editorVersion = str(bl_info["version"][0])+"."+str(bl_info["version"][1])
+ 		print(f"\n{textColors.BOLD}RE Mesh Editor V{editorVersion}{textColors.ENDC}")
+@@ -1107,7 +1110,7 @@ class ExportREMesh(Operator, ExportHelper):
+ 				pass
+ 		success = exportREMeshFile(self.filepath,options)
+ 		if success:
+-			self.report({"INFO"},"Exported RE Mesh successfully.")
++			self.report({"INFO"},translations.pgettext_tip("Exported RE Mesh successfully."))
+ 			if self.targetCollection in bpy.data.collections:
+ 				bpy.data.collections[self.targetCollection]["BatchExport_path"] = self.filepath
+ 				bpy.data.collections[self.targetCollection]["BatchExport_exportAllLODs"] = self.exportAllLODs
+@@ -1118,7 +1121,7 @@ class ExportREMesh(Operator, ExportHelper):
+ 				bpy.data.collections[self.targetCollection]["BatchExport_preserveBoneMatrices"] = self.preserveBoneMatrices
+ 				bpy.data.collections[self.targetCollection]["BatchExport_exportBoundingBoxes"] = self.exportBoundingBoxes
+ 		else:
+-			self.report({"INFO"},"RE Mesh export failed. See Window > Toggle System Console for info on how to fix it.")
++			self.report({"INFO"},translations.pgettext_tip("RE Mesh export failed. See Window > Toggle System Console for info on how to fix it."))
+ 		
+ 		if bpy.context.scene.re_mdf_toolpanel.modDirectory == "":
+ 			setModDirectoryFromFilePath(self.filepath)
+@@ -1169,12 +1172,12 @@ class ImportREMDF(bpy.types.Operator, ImportHelper):
+ 			
+ 		if not hasImportErrors:
+ 			if not multiFileImport:
+-				self.report({"INFO"},"Imported RE MDF file.")
++				self.report({"INFO"},translations.pgettext_tip("Imported RE MDF file."))
+ 			else:
+-				self.report({"INFO"},f"Imported {str(len(self.files))} RE MDF files.")
++				self.report({"INFO"},translations.tipf("Imported {count} RE MDF files.", count=len(self.files)))
+ 			return {"FINISHED"}
+ 		else:
+-			self.report({"INFO"},"Failed to import RE MDF. Check the console for errors.")
++			self.report({"INFO"},translations.pgettext_tip("Failed to import RE MDF. Check the console for errors."))
+ 			return {"CANCELLED"}
+ 	def invoke(self, context, event):
+ 		if self.directory:
+@@ -1216,7 +1219,9 @@ class ExportREMDF(bpy.types.Operator, ExportHelper):
  				(".40", "Dragon's Dogma 2 / Kunitsu-Gami / Dead Rising", "Dragon's Dogma 2, Kunitsu-Gami, Dead Rising"),
  				(".46", "Onimusha 2", "Onimusha 2"),
  				(".45", "Monster Hunter Wilds", "Monster Hunter Wilds"),
@@ -49,10 +141,187 @@ index b713bed..819b7d3 100644
  				(".49", "Monster Hunter Stories 3", "Monster Hunter Stories 3"),
  			  ]
  		)
-@@ -1860,4 +1864,3 @@ def unregister():
+@@ -1264,7 +1269,7 @@ class ExportREMDF(bpy.types.Operator, ExportHelper):
+ 		print("https://github.com/NSACloud/RE-Mesh-Editor")
+ 		success = exportMDFFile(self.filepath,self.targetCollection)
+ 		if success:
+-			self.report({"INFO"},"Exported RE MDF successfully.")
++			self.report({"INFO"},translations.pgettext_tip("Exported RE MDF successfully."))
+ 			
+ 			if bpy.context.scene.re_mdf_toolpanel.modDirectory == "":
+ 				setModDirectoryFromFilePath(self.filepath)
+@@ -1272,7 +1277,7 @@ class ExportREMDF(bpy.types.Operator, ExportHelper):
+ 			bpy.data.collections[self.targetCollection]["BatchExport_path"] = self.filepath
+ 			return {"FINISHED"}
+ 		else:
+-			self.report({"INFO"},"Failed to export RE MDF. Check Window > Toggle System Console for details.")
++			self.report({"INFO"},translations.pgettext_tip("Failed to export RE MDF. Check Window > Toggle System Console for details."))
+ 			return {"CANCELLED"}
+ 
+ class ImportREFBXSkel(bpy.types.Operator, ImportHelper):
+@@ -1301,7 +1306,7 @@ class ImportREFBXSkel(bpy.types.Operator, ImportHelper):
+ 		if success:
+ 			return {"FINISHED"}
+ 		else:
+-			self.report({"INFO"},"Failed to import RE FBXSkel.")
++			self.report({"INFO"},translations.pgettext_tip("Failed to import RE FBXSkel."))
+ 			return {"CANCELLED"}
+ 
+ def update_targetFBXSkelArmature(self,context):
+@@ -1391,11 +1396,11 @@ class ExportREFBXSkel(bpy.types.Operator, ExportHelper):
+ 	def execute(self, context):
+ 		success = exportFBXSkelFile(self.filepath,self.targetArmature)
+ 		if success:
+-			self.report({"INFO"},"Exported RE FBXSkel successfully.")
++			self.report({"INFO"},translations.pgettext_tip("Exported RE FBXSkel successfully."))
+ 			bpy.data.objects[self.targetArmature]["BatchExport_path"] = self.filepath
+ 			return {"FINISHED"}
+ 		else:
+-			self.report({"INFO"},"Failed to export RE FBXSkel. Check Window > Toggle System Console for details.")
++			self.report({"INFO"},translations.pgettext_tip("Failed to export RE FBXSkel. Check Window > Toggle System Console for details."))
+ 			return {"CANCELLED"}
+ 
+ class ImportRESFur(bpy.types.Operator, ImportHelper):
+@@ -1435,12 +1440,12 @@ class ImportRESFur(bpy.types.Operator, ImportHelper):
+ 			
+ 		if not hasImportErrors:
+ 			if not multiFileImport:
+-				self.report({"INFO"},"Imported RE SFur file.")
++				self.report({"INFO"},translations.pgettext_tip("Imported RE SFur file."))
+ 			else:
+-				self.report({"INFO"},f"Imported {str(len(self.files))} RE SFur files.")
++				self.report({"INFO"},translations.tipf("Imported {count} RE SFur files.", count=len(self.files)))
+ 			return {"FINISHED"}
+ 		else:
+-			self.report({"INFO"},"Failed to import RE SFur. Check the console for errors.")
++			self.report({"INFO"},translations.pgettext_tip("Failed to import RE SFur. Check the console for errors."))
+ 			return {"CANCELLED"}
+ 	def invoke(self, context, event):
+ 		if self.directory:
+@@ -1522,7 +1527,7 @@ class ExportRESFur(bpy.types.Operator, ExportHelper):
+ 		print("https://github.com/NSACloud/RE-Mesh-Editor")
+ 		success = exportSFurFile(self.filepath,self.targetCollection)
+ 		if success:
+-			self.report({"INFO"},"Exported RE SFur successfully.")
++			self.report({"INFO"},translations.pgettext_tip("Exported RE SFur successfully."))
+ 			
+ 			if bpy.context.scene.re_mdf_toolpanel.modDirectory == "":
+ 				setModDirectoryFromFilePath(self.filepath)
+@@ -1530,7 +1535,7 @@ class ExportRESFur(bpy.types.Operator, ExportHelper):
+ 			bpy.data.collections[self.targetCollection]["BatchExport_path"] = self.filepath
+ 			return {"FINISHED"}
+ 		else:
+-			self.report({"INFO"},"Failed to export RE SFur. Check Window > Toggle System Console for details.")
++			self.report({"INFO"},translations.pgettext_tip("Failed to export RE SFur. Check Window > Toggle System Console for details."))
+ 			return {"CANCELLED"}
+ 
+ 
+@@ -1794,6 +1799,7 @@ def re_mesh_editor_export(self, context):
+ 
+ def register():
+ 	addon_updater_ops.register(bl_info)
++	translations.register()
+ 	for classEntry in classes:
+ 		bpy.utils.register_class(classEntry)
+ 		
+@@ -1833,6 +1839,7 @@ def register():
+ 	
+ def unregister():
+ 	del bpy.types.WindowManager.enableModFileTracking
++	translations.unregister()
+ 	addon_updater_ops.unregister()
+ 	for classEntry in classes:
+ 		bpy.utils.unregister_class(classEntry)
+@@ -1860,4 +1867,3 @@ def unregister():
  		bpy.utils.unregister_class(SFUR_FH_drag_import)
  if __name__ == '__main__':
  	register()
+-	
+\ No newline at end of file
+diff --git a/addon_updater_ops.py b/addon_updater_ops.py
+index 423423d..207cb8c 100644
+--- a/addon_updater_ops.py
++++ b/addon_updater_ops.py
+@@ -1353,16 +1353,16 @@ def register(bl_info):
+     updater.private_token = None  # "tokenstring"
+ 
+     # Choose your own username, must match website (not needed for GitLab).
+-    updater.user = "NSACloud"
++    updater.user = "yequ172672"
+ 
+     # Choose your own repository, must match git name for GitHUb and Bitbucket,
+     # for GitLab use project ID (numbers only).
+-    updater.repo = "RE-Mesh-Editor"
++    updater.repo = "RE-Mesh-Editor-5.2-CN"
+ 
+     # updater.addon = # define at top of module, MUST be done first
+ 
+     # Website for manual addon download, optional but recommended to set.
+-    updater.website = "https://github.com/NSACloud/RE-Mesh-Editor"
++    updater.website = "https://github.com/yequ172672/RE-Mesh-Editor-5.2-CN/tree/feat/onimusha-wots"
+ 
+     # Addon subfolder path.
+     # "sample/path/to/addon"
+diff --git a/modules/fbxskel/re_fbxskel_operators.py b/modules/fbxskel/re_fbxskel_operators.py
+index 568f7ee..0e6405b 100644
+--- a/modules/fbxskel/re_fbxskel_operators.py
++++ b/modules/fbxskel/re_fbxskel_operators.py
+@@ -4,6 +4,7 @@ import bpy
+ from bpy.types import Operator
+ 
+ from ..blender_utils import showMessageBox
++from ... import translations
+ from .re_fbxskel_propertyGroups import ToggleStringPropertyGroup
+ EXTRACT_WINDOW_SIZE = 400
+ SPLIT_FACTOR = .45
+@@ -77,7 +78,7 @@ class WM_OT_LinkArmatureBones(Operator):
+ 						armatureLinkList.append(obj)
+ 		
+ 		armatureLinkCount = linkArmatures(mainArmature,armatureLinkList)
+-		self.report({"INFO"},f"Linked {armatureLinkCount} armatures to the selected armature.")
++		self.report({"INFO"},translations.tipf("Linked {count} armatures to the selected armature.", count=armatureLinkCount))
+ 		return {'FINISHED'}
+ 	@classmethod
+ 	def poll(self,context):
+@@ -101,7 +102,7 @@ class WM_OT_LinkArmatureBones(Operator):
+ 		#Move cursor to center so extract window is at the center of the window
+ 		context.window.cursor_warp(centerX,centerY)
+ 	
+-		return context.window_manager.invoke_props_dialog(self,width = EXTRACT_WINDOW_SIZE,confirm_text = "Link Main Armature")
++		return context.window_manager.invoke_props_dialog(self,width = EXTRACT_WINDOW_SIZE,confirm_text = translations.pgettext_iface("Link Main Armature"))
+ 
+ 	
+ 	def draw(self,context):
+@@ -109,11 +110,11 @@ class WM_OT_LinkArmatureBones(Operator):
+ 		rowCount = 8
+ 		uifontscale = 9 * context.preferences.view.ui_scale
+ 		max_label_width = int((EXTRACT_WINDOW_SIZE*(1-SPLIT_FACTOR)*(2-SPLIT_FACTOR)) // uifontscale)
+-		layout.label(text=f"Main Armature: {context.active_object.name}")
++		layout.label(text=translations.ifacef("Main Armature: {name}", name=context.active_object.name))
+ 		col = layout.column()
+ 		
+ 		
+-		col.label(text = f"Armature Count: {str(len(self.armatureList_items))}")
++		col.label(text = translations.ifacef("Armature Count: {count}", count=len(self.armatureList_items)))
+ 		row = col.row()
+ 		row.alignment = "RIGHT"
+ 		row.prop(self,"checkAllArmatures",icon="CHECKMARK", icon_only=True)
+@@ -128,7 +129,7 @@ class WM_OT_LinkArmatureBones(Operator):
+ 			rows = rowCount,
+ 			type='DEFAULT'
+ 			)
+-		layout.label(text=f"All checked armatures will be constrained to main armature.")
++		layout.label(text=translations.pgettext_iface("All checked armatures will be constrained to main armature."))
+ class WM_OT_ClearBoneLinkages(Operator):
+ 	bl_label = "Clear Bone Linkages"
+ 	bl_description = "Removes all bone linkages on the selected armatures.\n"
+@@ -143,6 +144,5 @@ class WM_OT_ClearBoneLinkages(Operator):
+ 					if "BoneLinkage" in bone.constraints:
+ 						constraint = bone.constraints["BoneLinkage"]
+ 						bone.constraints.remove(constraint)
+-		self.report({"INFO"},"Cleared bone linkages on selected armatures.")
++		self.report({"INFO"},translations.pgettext_tip("Cleared bone linkages on selected armatures."))
+ 		return {'FINISHED'}
 -	
 \ No newline at end of file
 diff --git a/modules/mdf/blender_re_mdf.py b/modules/mdf/blender_re_mdf.py
@@ -301,6 +570,99 @@ index 08d9d75..67603cb 100644
  	debugprint("File Version "+str(version))
  	mdfFile.read_fast(file,version)
  	file.close()
+diff --git a/modules/mdf/re_mdf_operators.py b/modules/mdf/re_mdf_operators.py
+index e4b484d..3e26295 100644
+--- a/modules/mdf/re_mdf_operators.py
++++ b/modules/mdf/re_mdf_operators.py
+@@ -9,6 +9,7 @@ from ..gen_functions import raiseWarning,openFolder
+ from .blender_re_mdf import createEmpty,reindexMaterials,createMDFCollection,checkNameUsage,buildMDF
+ from .blender_re_mesh_mdf import importMDF
+ from ..blender_utils import showErrorMessageBox
++from ... import translations
+ from .file_re_mdf import getMDFVersionToGameName
+ from .re_mdf_presets import saveAsPreset,readPresetJSON
+ from .ui_re_mdf_panels import tag_redraw
+@@ -27,10 +28,10 @@ class WM_OT_NewMDFHeader(Operator):
+ 	def execute(self, context):
+ 		if self.collectionName.strip() != "":
+ 			createMDFCollection(self.collectionName.strip()+".mdf2")
+-			self.report({"INFO"},"Created new RE MDF collection.")
++			self.report({"INFO"},translations.pgettext_tip("Created new RE MDF collection."))
+ 			return {'FINISHED'}
+ 		else:
+-			self.report({"ERROR"},"Invalid MDF collection name.")
++			self.report({"ERROR"},translations.pgettext_tip("Invalid MDF collection name."))
+ 			return {'CANCELLED'}
+ 	
+ 	def invoke(self,context,event):
+@@ -46,7 +47,7 @@ class WM_OT_ReindexMaterials(Operator):
+ 
+ 	def execute(self, context):
+ 		reindexMaterials(bpy.context.scene.re_mdf_toolpanel.mdfCollection)
+-		self.report({"INFO"},"Reindexed materials.")
++		self.report({"INFO"},translations.pgettext_tip("Reindexed materials."))
+ 		return {'FINISHED'}
+ 
+ class WM_OT_AddPresetMaterial(Operator):
+@@ -68,7 +69,7 @@ class WM_OT_AddPresetMaterial(Operator):
+ 			finished = False
+ 		tag_redraw(bpy.context)
+ 		if finished:
+-			self.report({"INFO"},"Added preset material.")
++			self.report({"INFO"},translations.pgettext_tip("Added preset material."))
+ 			return {'FINISHED'}
+ 		else:
+ 			return {'CANCELLED'}
+@@ -126,9 +127,9 @@ class WM_OT_ApplyMDFToMeshCollection(Operator):
+ 					bpy.data.materials.remove(material)
+ 			"""
+ 			importMDF(mdfFile, meshMaterialDict,bpy.context.scene.re_mdf_toolpanel.loadUnusedTextures,bpy.context.scene.re_mdf_toolpanel.loadUnusedProps,bpy.context.scene.re_mdf_toolpanel.useBackfaceCulling,bpy.context.scene.re_mdf_toolpanel.reloadCachedTextures,chunkPath = modDir,gameName = bpy.context.scene.re_mdf_toolpanel.activeGame,arrangeNodes = True)
+-			self.report({"INFO"},"Applied MDF to mesh collection.")
++			self.report({"INFO"},translations.pgettext_tip("Applied MDF to mesh collection."))
+ 		else:
+-			self.report({"ERROR"},"Invalid mesh or MDF collection.")
++			self.report({"ERROR"},translations.pgettext_tip("Invalid mesh or MDF collection."))
+ 		return {'FINISHED'}
+ class WM_OT_OpenPresetFolder(Operator):
+ 	bl_label = "Open Preset Folder"
+@@ -155,7 +156,7 @@ class WM_OT_SavePreset(Operator):
+ 		gameName = bpy.context.scene.re_mdf_toolpanel.activeGame
+ 		finished = saveAsPreset(context.active_object, self.presetName,gameName)
+ 		if finished:
+-			self.report({"INFO"},"Saved preset.")
++			self.report({"INFO"},translations.pgettext_tip("Saved preset."))
+ 			return {'FINISHED'}
+ 		else:
+ 			return {'CANCELLED'}
+@@ -192,7 +193,7 @@ class WM_OT_FindReplaceTextureBindings(Operator):
+ 				replaceCount += entry.path.count(self.findValue)
+ 				entry.path = entry.path.replace(self.findValue,self.replaceValue)
+ 				
+-			self.report({"INFO"},f"Replaced {replaceCount} instances of \"{self.findValue}\"")
++			self.report({"INFO"},translations.tipf("Replaced {count} instances of \"{value}\"", count=replaceCount, value=self.findValue))
+ 			return {'FINISHED'}
+ 		else:
+ 			return {'CANCELLED'}
+@@ -200,7 +201,7 @@ class WM_OT_FindReplaceTextureBindings(Operator):
+ 	def draw(self,context):
+ 		layout = self.layout
+ 		layout.prop(self,"findValue")
+-		layout.label(text=f"{self.instanceCount} instances found.")
++		layout.label(text=translations.ifacef("{count} instances found.", count=self.instanceCount))
+ 		layout.prop(self,"replaceValue")
+ 	
+ 	def invoke(self,context,event):
+@@ -246,7 +247,7 @@ class WM_OT_NullifyTextureBindings(Operator):
+ 						else:
+ 							print(f"Unknown texture type {entry.textureType} on {material.materialName}, skipping.")
+ 				
+-			self.report({"INFO"},f"Replaced {replaceCount} texture bindings.")
++			self.report({"INFO"},translations.tipf("Replaced {count} texture bindings.", count=replaceCount))
+ 			return {'FINISHED'}
+ 		else:
+-			return {'CANCELLED'}
+\ No newline at end of file
++			return {'CANCELLED'}
 diff --git a/modules/mdf/re_mdf_propertyGroups.py b/modules/mdf/re_mdf_propertyGroups.py
 index 60751eb..75ea26f 100644
 --- a/modules/mdf/re_mdf_propertyGroups.py
@@ -399,6 +761,154 @@ index c7d5def..8e4c938 100644
  			reMesh.lodHeader.skinWeightCount = 27#
  		elif version == VERSION_RE9:
  			reMesh.lodHeader.skinWeightCount = 18#
+diff --git a/modules/mesh/re_mesh_operators.py b/modules/mesh/re_mesh_operators.py
+index 0a019b7..7145ade 100644
+--- a/modules/mesh/re_mesh_operators.py
++++ b/modules/mesh/re_mesh_operators.py
+@@ -14,6 +14,7 @@ from .blender_re_mesh import solveRepeatedUVs
+ from .re_mesh_propertyGroups import ExporterNodePropertyGroup,MESH_UL_REExporterList
+ from ..gen_functions import splitNativesPath
+ from ..blender_utils import showErrorMessageBox
++from ... import translations
+ class WM_OT_DeleteLoose(Operator):
+ 	bl_label = "Delete Loose Geometry"
+ 	bl_idname = "re_mesh.delete_loose"
+@@ -32,9 +33,9 @@ class WM_OT_DeleteLoose(Operator):
+ 				bpy.ops.mesh.delete_loose()
+ 				bpy.ops.object.mode_set(mode='OBJECT')
+ 		if context.selected_objects == []: 
+-			self.report({"INFO"},"Deleted loose geometry on all objects")
++			self.report({"INFO"},translations.pgettext_tip("Deleted loose geometry on all objects"))
+ 		else:
+-			self.report({"INFO"},"Deleted loose geometry on selected objects")
++			self.report({"INFO"},translations.pgettext_tip("Deleted loose geometry on selected objects"))
+ 		return {'FINISHED'}
+ class WM_OT_RenameMeshToREFormat(Operator):
+ 	bl_label = "Rename Meshes"
+@@ -66,9 +67,9 @@ class WM_OT_RenameMeshToREFormat(Operator):
+ 				groupIndexDict[groupID] += 1
+ 				
+ 		if context.selected_objects == []: 
+-			self.report({"INFO"},"Renamed all objects to RE Mesh format")
++			self.report({"INFO"},translations.pgettext_tip("Renamed all objects to RE Mesh format"))
+ 		else:
+-			self.report({"INFO"},"Renamed selected objects to RE Mesh format")
++			self.report({"INFO"},translations.pgettext_tip("Renamed selected objects to RE Mesh format"))
+ 		return {'FINISHED'}
+ 
+ 
+@@ -92,9 +93,9 @@ class WM_OT_RemoveZeroWeightVertexGroups(Operator):
+ 			for group in emptyGroupList:
+ 				obj.vertex_groups.remove(group)
+ 		if context.selected_objects == []: 
+-			self.report({"INFO"},"Removed empty vertex groups on all objects.")
++			self.report({"INFO"},translations.pgettext_tip("Removed empty vertex groups on all objects."))
+ 		else:
+-			self.report({"INFO"},"Removed empty vertex groups on selected objects.")		
++			self.report({"INFO"},translations.pgettext_tip("Removed empty vertex groups on selected objects."))
+ 		return {'FINISHED'}
+ 	
+ class WM_OT_LimitTotalNormalizeAll(Operator):
+@@ -132,9 +133,9 @@ class WM_OT_LimitTotalNormalizeAll(Operator):
+ 				print(f"Limited total weights to {weightLimit} and normalized {selectedObj.name}")
+ 				bpy.ops.object.mode_set(mode='OBJECT')
+ 		if context.selected_objects == []:
+-			self.report({"INFO"},f"Limited total weights to {weightLimit} and normalized on all objects")
++			self.report({"INFO"},translations.tipf("Limited total weights to {weight_limit} and normalized on all objects", weight_limit=weightLimit))
+ 		else:
+-			self.report({"INFO"},f"Limited total weights to {weightLimit} and normalized on selected objects")
++			self.report({"INFO"},translations.tipf("Limited total weights to {weight_limit} and normalized on selected objects", weight_limit=weightLimit))
+ 		return {'FINISHED'}
+ class WM_OT_CreateMeshCollection(Operator):
+ 	bl_label = "Create Mesh Collection"
+@@ -163,10 +164,10 @@ class WM_OT_CreateMeshCollection(Operator):
+ 					lodCollection = bpy.data.collections.new(f"Main Mesh LOD{str(i)} - {collection.name}")
+ 					lodCollection["LOD Distance"] = 0.167932*(i+1)
+ 					collection.children.link(lodCollection)
+-			self.report({"INFO"},"Created new RE mesh collection.")
++			self.report({"INFO"},translations.pgettext_tip("Created new RE mesh collection."))
+ 			return {'FINISHED'}
+ 		else:
+-			self.report({"ERROR"},"Invalid mesh collection name.")
++			self.report({"ERROR"},translations.pgettext_tip("Invalid mesh collection name."))
+ 			return {'CANCELLED'}
+ 	
+ 	def invoke(self,context,event):
+@@ -446,9 +447,9 @@ class WM_OT_REBatchExporter(Operator):
+ 				print(f"Unsupported File Type ({exportItem.exportType}), skipping")
+ 				failCount += 1
+ 		if failCount != 0:
+-			showErrorMessageBox(f"{failCount}/{len(exportItemList)} files failed to export.\nSee console for details. (Window > Toggle System Console)")
++			showErrorMessageBox(translations.ifacef("{fail_count}/{total_count} files failed to export.\nSee console for details. (Window > Toggle System Console)", fail_count=failCount, total_count=len(exportItemList)))
+ 		else:
+-			self.report({"INFO"},"Batch export finished successfully.")
++			self.report({"INFO"},translations.pgettext_tip("Batch export finished successfully."))
+ 		return {'FINISHED'}
+ 	
+ 	def invoke(self, context, event):
+@@ -513,7 +514,7 @@ class WM_OT_REBatchExporter(Operator):
+ 			#Move cursor to center so extract window is at the center of the window
+ 			context.window.cursor_warp(centerX,centerY)
+ 		
+-			return context.window_manager.invoke_props_dialog(self,width = EXPORTER_WINDOW_SIZE,confirm_text = "Batch Export Files")
++			return context.window_manager.invoke_props_dialog(self,width = EXPORTER_WINDOW_SIZE,confirm_text = translations.pgettext_iface("Batch Export Files"))
+ 
+ 	
+ 	def draw(self,context):
+@@ -526,7 +527,7 @@ class WM_OT_REBatchExporter(Operator):
+ 		split2 = col1.split()
+ 		col1sub1 = split2.column()
+ 		col1sub1.alignment = "LEFT"
+-		col1sub1.label(text=f"Files ({sum(1 for item in self.itemList_items if (not item.hasChild and item.enabled))} selected)")
++		col1sub1.label(text=translations.ifacef("Files ({count} selected)", count=sum(1 for item in self.itemList_items if (not item.hasChild and item.enabled))))
+ 		col1sub2 = col1.column()
+ 		row = split2.row()
+ 		row.alignment = "RIGHT"
+@@ -543,13 +544,13 @@ class WM_OT_REBatchExporter(Operator):
+ 			type='DEFAULT'
+ 			)
+ 		col2 = split.column()
+-		col2.label(text="Export Settings")
++		col2.label(text=translations.pgettext_iface("Export Settings"))
+ 		box = col2.box()
+ 		if self.itemList_index != -1:
+ 			item = self.itemList_items[self.itemList_index]
+ 			if not item.hasChild and item.exportType != "":
+-				box.label(text=f"Type: {item.exportType}")
+-				box.label(text="Export Path")
++				box.label(text=translations.ifacef("Type: {type}", type=item.exportType))
++				box.label(text=translations.pgettext_iface("Export Path"))
+ 				
+ 				box.prop(item,"path")
+ 				if item.invalid:
+@@ -566,7 +567,7 @@ class WM_OT_REBatchExporter(Operator):
+ 					box.prop(item, "preserveBoneMatrices")
+ 					box.prop(item, "exportBoundingBoxes")
+ 			else:
+-				box.label(text=f"Select a file from the list to configure export settings.")
++				box.label(text=translations.pgettext_iface("Select a file from the list to configure export settings."))
+ 				
+ 
+ class WM_OT_SolveRepeatedUVs(Operator):
+@@ -583,9 +584,9 @@ class WM_OT_SolveRepeatedUVs(Operator):
+ 		solveRepeatedUVs(selection)
+ 		
+ 		if context.selected_objects == []: 
+-			self.report({"INFO"},"Solved repeated UVs on all objects.")
++			self.report({"INFO"},translations.pgettext_tip("Solved repeated UVs on all objects."))
+ 		else:
+-			self.report({"INFO"},"Solved repeated UVs on selected objects.")
++			self.report({"INFO"},translations.pgettext_tip("Solved repeated UVs on selected objects."))
+ 		return {'FINISHED'}
+ 	
+ class WM_OT_QuickBatchExport(Operator):
+@@ -594,4 +595,4 @@ class WM_OT_QuickBatchExport(Operator):
+ 	bl_description = "Single click batch export. Works the same as RE Batch Export but there is no prompt to configure settings.\nThe previous settings of RE Batch Export are used."
+ 	def execute(self, context):
+ 		bpy.ops.re_mesh.batch_exporter()
+-		return {'FINISHED'}
+\ No newline at end of file
++		return {'FINISHED'}
 diff --git a/modules/mesh/re_mesh_parse.py b/modules/mesh/re_mesh_parse.py
 index db5ce0a..0d7bb16 100644
 --- a/modules/mesh/re_mesh_parse.py
@@ -425,6 +935,60 @@ index db5ce0a..0d7bb16 100644
 -			pass#TODO Parse MPLY
 \ No newline at end of file
 +			pass#TODO Parse MPLY
+diff --git a/modules/sfur/re_sfur_operators.py b/modules/sfur/re_sfur_operators.py
+index a251232..bdebed6 100644
+--- a/modules/sfur/re_sfur_operators.py
++++ b/modules/sfur/re_sfur_operators.py
+@@ -1,5 +1,6 @@
+ #Author: NSA Cloud
+ import bpy
++from ... import translations
+ import os
+ 
+ from bpy.types import Operator
+@@ -21,10 +22,10 @@ class WM_OT_NewSFurHeader(Operator):
+ 	def execute(self, context):
+ 		if self.collectionName.strip() != "":
+ 			createSFurCollection(self.collectionName.strip()+".sfur")
+-			self.report({"INFO"},"Created new RE SFur collection.")
++			self.report({"INFO"},translations.pgettext_tip("Created new RE SFur collection."))
+ 			return {'FINISHED'}
+ 		else:
+-			self.report({"ERROR"},"Invalid SFur collection name.")
++			self.report({"ERROR"},translations.pgettext_tip("Invalid SFur collection name."))
+ 			return {'CANCELLED'}
+ 	
+ 	def invoke(self,context,event):
+@@ -40,7 +41,7 @@ class WM_OT_ReindexEntries(Operator):
+ 
+ 	def execute(self, context):
+ 		reindexEntries(bpy.context.scene.re_mdf_toolpanel.sFurCollection)
+-		self.report({"INFO"},"Reindexed fur entries.")
++		self.report({"INFO"},translations.pgettext_tip("Reindexed fur entries."))
+ 		return {'FINISHED'}
+ 
+ class WM_OT_AddFurEntry(Operator):
+@@ -73,7 +74,7 @@ class WM_OT_AddFurEntry(Operator):
+ 			name = subName + " ("+materialName+")"
+ 			furObj = createCurveEmpty(name,[("~TYPE","RE_SFUR_ENTRY")],None,sFurCollection)
+ 			furObj.re_sfur_data.materialName = materialName
+-			self.report({"INFO"},"Added shell fur entry.")
++			self.report({"INFO"},translations.pgettext_tip("Added shell fur entry."))
+ 			return {'FINISHED'}
+ 		else:
+ 			return {'CANCELLED'}
+@@ -96,7 +97,7 @@ class WM_OT_ApplySFurToMeshCollection(Operator):
+ 		
+ 		if sFurCollection != None and meshCollection != None:
+ 			
+-			self.report({"INFO"},"Applied SFur to mesh collection.")
++			self.report({"INFO"},translations.pgettext_tip("Applied SFur to mesh collection."))
+ 		else:
+-			self.report({"ERROR"},"Invalid mesh or SFur collection.")
+-		return {'FINISHED'}
+\ No newline at end of file
++			self.report({"ERROR"},translations.pgettext_tip("Invalid mesh or SFur collection."))
++		return {'FINISHED'}
 diff --git a/modules/tex/blender_re_tex.py b/modules/tex/blender_re_tex.py
 index 3710dc2..f95522d 100644
 --- a/modules/tex/blender_re_tex.py
@@ -528,6 +1092,58 @@ index 19499d6..96a4435 100644
                  imageMipDataListEntry.append(mipEntry)
                  currentImageDataHeaderOffset += 8  # 8 is image data header size
              self.imageMipDataList.append(imageMipDataListEntry)
+diff --git a/modules/tex/re_tex_operators.py b/modules/tex/re_tex_operators.py
+index 284b8c6..0afebf2 100644
+--- a/modules/tex/re_tex_operators.py
++++ b/modules/tex/re_tex_operators.py
+@@ -13,6 +13,7 @@ from .re_tex_propertyGroups import PNGConversionEntryPropertyGroup
+ from ..mdf.file_re_mdf import getMDFVersionToGameName
+ from .re_tex_utils import DDSToTex,ImageListToDDS
+ from ..gen_functions import openFolder
++from ... import translations
+ import shutil
+ #from .re_tex_utils import
+ 
+@@ -142,8 +143,8 @@ class WM_OT_PNGToTexConversionWindow(Operator):
+ 			except:
+ 				pass
+ 		if not self.skipPrompt:
+-			showMessageBox(f"Converted {str(successCount)} textures.",title = "Texture Conversion")
+-		self.report({"INFO"},f"Converted {str(successCount)} textures.")
++			showMessageBox(translations.ifacef("Converted {count} textures.", count=successCount),title = translations.pgettext_iface("Texture Conversion"))
++		self.report({"INFO"},translations.tipf("Converted {count} textures.", count=successCount))
+ 		
+ 			
+ 		return {'FINISHED'}
+@@ -178,13 +179,13 @@ class WM_OT_PNGToTexConversionWindow(Operator):
+ 		if self.skipPrompt:
+ 			return self.execute(context)
+ 		else:
+-			return context.window_manager.invoke_props_dialog(self,width = 700,confirm_text = "Convert to RE Tex")
++			return context.window_manager.invoke_props_dialog(self,width = 700,confirm_text = translations.pgettext_iface("Convert to RE Tex"))
+ 
+ 
+ 	def draw(self,context):
+ 		layout = self.layout
+-		layout.label(text = f"Active Game: {self.gameName} - Tex Version: {self.texVersion}")
+-		layout.label(text = f"File Count: {str(len(self.fileList_items))}")
++		layout.label(text = translations.ifacef("Active Game: {game} - Tex Version: {version}", game=self.gameName, version=self.texVersion))
++		layout.label(text = translations.ifacef("File Count: {count}", count=len(self.fileList_items)))
+ 		layout.template_list(
+ 			listtype_name = "TEX_UL_PNGConversionList", 
+ 			list_id = "fileList",
+@@ -277,9 +278,9 @@ class WM_OT_CopyConvertedTextures(Operator):
+ 					totalTextureCount += 1
+ 				elif entry.is_file() and ".tex." in entry.name:
+ 					totalTextureCount += 1
+-			self.report({"INFO"},f"Copied {copyCount}/{totalTextureCount} textures to mod directory")
++			self.report({"INFO"},translations.tipf("Copied {copy_count}/{total_count} textures to mod directory", copy_count=copyCount, total_count=totalTextureCount))
+ 		else:
+-			self.report({"ERROR"},f"Texture directory does not exist")
++			self.report({"ERROR"},translations.pgettext_tip("Texture directory does not exist"))
+ 		
+ 		return {"FINISHED"}
+ 
 diff --git a/modules/tex/re_tex_utils.py b/modules/tex/re_tex_utils.py
 index 06faee7..1cee8b2 100644
 --- a/modules/tex/re_tex_utils.py
@@ -574,3 +1190,1116 @@ index 06faee7..1cee8b2 100644
 -    unload_texconv()
 \ No newline at end of file
 +    unload_texconv()
+diff --git a/modules/workspace/re_mod_workspace_operators.py b/modules/workspace/re_mod_workspace_operators.py
+index 643a78e..2966460 100644
+--- a/modules/workspace/re_mod_workspace_operators.py
++++ b/modules/workspace/re_mod_workspace_operators.py
+@@ -19,6 +19,7 @@ from .texturepacker.texture_pack import packTextures
+ from .texturepacker.re_texture_analysis import analyzeMaterial,analyzePreset
+ from .texturepacker.image_utils import generatePlaceholderMaps
+ from ..blender_utils import showMessageBox
++from ... import translations
+ 
+ FILE_FORMAT = "TARGA"#Only viable option for all softwares, png is annoying to open in photoshop, tiff conversion doesn't work on linux, only problem is tga files are big
+ FILE_EXT = ".tga"
+@@ -225,11 +226,11 @@ class WM_OT_CreateModWorkspace(Operator):
+ 		
+ 		workDir =  bpy.path.abspath(self.workDirectory)
+ 		if not os.path.isdir(workDir):
+-			self.report({"ERROR"},"Invalid work directory.")
++			self.report({"ERROR"},translations.pgettext_tip("Invalid work directory."))
+ 			return {'CANCELLED'}
+ 		
+ 		if self.internalName != slugify(self.internalName):
+-			self.report({"ERROR"},"Invalid internal mod name.")
++			self.report({"ERROR"},translations.pgettext_tip("Invalid internal mod name."))
+ 			return {'CANCELLED'}
+ 		
+ 		if self.editMode:
+@@ -274,7 +275,7 @@ class WM_OT_CreateModWorkspace(Operator):
+ 		#Get exe path from asset library if present
+ 		exePath = getSceneEXEPath()
+ 		
+-		self.report({"INFO"},"Created mod workspace.")
++		self.report({"INFO"},translations.pgettext_tip("Created mod workspace."))
+ 		
+ 		return {'FINISHED'}
+ 	
+@@ -471,13 +472,13 @@ class WM_OT_ConvertToREEngine(Operator):
+ 		self.materialList_items.clear()
+ 		objList = [obj for obj in bpy.context.selected_objects if obj.type == "MESH"]
+ 		if len(objList) == 0:
+-			self.report({"ERROR"},"No meshes are selected.")
++			self.report({"ERROR"},translations.pgettext_tip("No meshes are selected."))
+ 			return {'CANCELLED'}
+ 		self.objectCount = len(objList)
+ 		#currentX = event.mouse_region_X
+ 		#currentY = event.mouse_region_Y
+ 		if "modWorkspace_gameName" not in bpy.context.scene:
+-			self.report({"ERROR"},"Mod workspace is not set up.")
++			self.report({"ERROR"},translations.pgettext_tip("Mod workspace is not set up."))
+ 			return {'CANCELLED'}
+ 		
+ 		gameName = bpy.context.scene["modWorkspace_gameName"]
+@@ -492,7 +493,7 @@ class WM_OT_ConvertToREEngine(Operator):
+ 					presetList.append(os.path.join(gameName,entry.name))
+ 		
+ 		if len(presetList) == 0:
+-			self.report({"ERROR"},f"There are no material presets saved for {gameName}. This feature cannot be used without presets.")
++			self.report({"ERROR"},translations.tipf("There are no material presets saved for {game_name}. This feature cannot be used without presets.", game_name=gameName))
+ 			return {'CANCELLED'} 
+ 		
+ 		#Get last imported mesh and mdf collection
+@@ -525,7 +526,7 @@ class WM_OT_ConvertToREEngine(Operator):
+ 						materialNameSet.add(material.name)
+ 		
+ 		if len(materialNameSet) == 0:
+-			self.report({"ERROR"},f"The selected objects have no materials.")
++			self.report({"ERROR"},translations.pgettext_tip("The selected objects have no materials."))
+ 			return {'CANCELLED'} 			
+ 		
+ 		for materialName in sorted(list(materialNameSet)):
+@@ -544,7 +545,7 @@ class WM_OT_ConvertToREEngine(Operator):
+ 		
+ 		context.window.cursor_warp(centerX,centerY)
+ 	
+-		return context.window_manager.invoke_props_dialog(self,width = 750,confirm_text = "Convert to RE Engine")
++		return context.window_manager.invoke_props_dialog(self,width = 750,confirm_text = translations.pgettext_iface("Convert to RE Engine"))
+ 	def draw(self,context):
+ 		layout = self.layout
+ 		layout.label(text="This feature is experimental and may not work with all material setups.",icon = "ERROR")
+@@ -868,8 +869,9 @@ class WM_OT_ConvertToREEngine(Operator):
+ 			bpy.ops.re_tex.convert_tex_directory(skipPrompt = True)
+ 			bpy.ops.re_tex.copy_converted_tex()
+ 			bpy.ops.re_mdf.apply_mdf()
+-			showMessageBox("Model converted to RE Engine format." + "\nExisting objects in collection were moved into the \"Removed Meshes\" collection." if self.moveCollectionObjects else "",title = "RE Model Conversion")
+-			self.report({"INFO"},"Converted selected models to RE Engine format.")
++			message = translations.pgettext_iface("Model converted to RE Engine format.\nExisting objects in collection were moved into the \"Removed Meshes\" collection.") if self.moveCollectionObjects else ""
++			showMessageBox(message,title = translations.pgettext_iface("RE Model Conversion"))
++			self.report({"INFO"},translations.pgettext_tip("Converted selected models to RE Engine format."))
+ 			try: 
+ 				bpy.ops.wm.console_toggle()
+ 			except:
+@@ -936,10 +938,10 @@ class WM_OT_ToggleModFileTracking(bpy.types.Operator):
+ 					wm.modal_handler_add(self)
+ 					wm.enableModFileTracking = True
+ 				else:
+-					self.report({"ERROR"},"Invalid directory.")
++					self.report({"ERROR"},translations.pgettext_tip("Invalid directory."))
+ 					return {'CANCELLED'} 
+ 			else:
+-				self.report({"ERROR"},"Mod workspace not set or asset library is not set up.")
++				self.report({"ERROR"},translations.pgettext_tip("Mod workspace not set or asset library is not set up."))
+ 				return {'CANCELLED'} 
+ 			return {'RUNNING_MODAL'}
+ 		
+@@ -1053,7 +1055,7 @@ class WM_OT_CopyModFilesToGameDir(Operator):
+ 			gameName = bpy.context.scene["modWorkspace_gameName"]
+ 			exePath = getSceneEXEPath()
+ 			if exePath == None:
+-				self.report({"ERROR"},f"Install the asset library for {gameName} and set the game extract paths first.")
++				self.report({"ERROR"},translations.tipf("Install the asset library for {game_name} and set the game extract paths first.", game_name=gameName))
+ 				return {'CANCELLED'}
+ 			else:
+ 				exePath = bpy.context.scene["modWorkspace_exePath"]
+@@ -1110,7 +1112,11 @@ class WM_OT_CopyModFilesToGameDir(Operator):
+ 							else:
+ 								print(f"{entry.name} is unchanged, skipping copy.")
+ 									
+-			self.report({"INFO"},f"Copied {copyCount} / {fileCount} files." + (" Pak file was not copied, make sure the game isn't running." if pakCopyFailed else ""))
++			if pakCopyFailed:
++				report_message = translations.tipf("Copied {copy_count} / {file_count} files. Pak file was not copied, make sure the game isn't running.", copy_count=copyCount, file_count=fileCount)
++			else:
++				report_message = translations.tipf("Copied {copy_count} / {file_count} files.", copy_count=copyCount, file_count=fileCount)
++			self.report({"INFO"},report_message)
+ 		return {'FINISHED'}
+ 	
+ class WM_OT_UninstallModFilesFromGameDir(Operator):
+@@ -1130,7 +1136,7 @@ class WM_OT_UninstallModFilesFromGameDir(Operator):
+ 			gameName = bpy.context.scene["modWorkspace_gameName"]
+ 			exePath = getSceneEXEPath()
+ 			if exePath == None:
+-				self.report({"ERROR"},f"Install the asset library for {gameName} and set the game extract paths first.")
++				self.report({"ERROR"},translations.tipf("Install the asset library for {game_name} and set the game extract paths first.", game_name=gameName))
+ 				return {'CANCELLED'}
+ 			else:
+ 				exePath = bpy.context.scene["modWorkspace_exePath"]
+@@ -1179,7 +1185,11 @@ class WM_OT_UninstallModFilesFromGameDir(Operator):
+ 						except Exception as e:
+ 							pakDeleteFailed = True
+ 							print(f"Failed to copy {outPath} - {e}")
+-			self.report({"INFO"},f"Deleted {deleteCount} / {fileCount} files."  + (" Pak file was not deleted, make sure the game isn't running." if pakDeleteFailed else ""))
++			if pakDeleteFailed:
++				report_message = translations.tipf("Deleted {delete_count} / {file_count} files. Pak file was not deleted, make sure the game isn't running.", delete_count=deleteCount, file_count=fileCount)
++			else:
++				report_message = translations.tipf("Deleted {delete_count} / {file_count} files.", delete_count=deleteCount, file_count=fileCount)
++			self.report({"INFO"},report_message)
+ 		return {'FINISHED'}
+ 
+ 
+@@ -1197,13 +1207,13 @@ class WM_OT_LaunchGame(Operator):
+ 			gameName = bpy.context.scene["modWorkspace_gameName"]
+ 			exePath = getSceneEXEPath()
+ 			if exePath == None:
+-				self.report({"ERROR"},f"Install the asset library for {gameName} and set the game extract paths first.")
++				self.report({"ERROR"},translations.tipf("Install the asset library for {game_name} and set the game extract paths first.", game_name=gameName))
+ 				return {'CANCELLED'}
+ 			
+ 			if platform.system() == 'Windows' and os.path.isfile(exePath):
+ 				os.startfile(exePath)
+ 			else:
+-				self.report({"ERROR"},f"This feature is only supported on Windows.")
++				self.report({"ERROR"},translations.pgettext_tip("This feature is only supported on Windows."))
+ 					
+ 		return {'FINISHED'}
+ 	
+@@ -1220,4 +1230,4 @@ class WM_OT_OpenModWorkspace(Operator):
+ 		if os.path.isdir(bpy.context.scene["modWorkspace_directory"]):
+ 			openFolder(bpy.context.scene["modWorkspace_directory"])
+ 					
+-		return {'FINISHED'}
+\ No newline at end of file
++		return {'FINISHED'}
+diff --git a/translations.py b/translations.py
+new file mode 100644
+index 0000000..163beb5
+--- /dev/null
++++ b/translations.py
+@@ -0,0 +1,937 @@
++"""Chinese UI translations for the RE Mesh Editor Blender add-on.
++
++The source strings remain English message ids. Blender resolves these entries
++at draw time, so the same source code keeps its English fallback when the
++locale is not Chinese.
++
++zh_HANS is Blender's Simplified Chinese locale. zh_CN is kept as a
++compatibility alias for builds or preferences that expose the legacy name.
++"""
++
++import bpy
++
++
++_TRANSLATION_MODULE_NAME = "re_mesh_editor_zh"
++_REGISTERED = False
++
++
++# Normal UI strings use Blender's default "*" context. Operator reports are
++# explicitly looked up in the "Operator" context below.
++_UI_MESSAGES = {
++    "Convert to RE Engine": "转换为 RE Engine 格式",
++    "RE Model Conversion": "RE 模型转换",
++    "Model converted to RE Engine format.\nExisting objects in collection were moved into the \"Removed Meshes\" collection.": "模型已转换为 RE Engine 格式。\n集合中的原有对象已移至“Removed Meshes”集合。",
++    # Add-on metadata and preferences.
++    "RE Mesh Editor": "RE Mesh Editor",
++    "Import and export RE Engine Mesh files natively into Blender. No Noesis required.": "在 Blender 中原生导入和导出 RE Engine 网格文件。无需 Noesis。",
++    "Open Texture Cache Folder": "打开纹理缓存文件夹",
++    "Opens the texture cache folder in File Explorer": "在文件资源管理器中打开纹理缓存文件夹",
++    "Check Cache Size": "检查缓存大小",
++    "Shows the current size of the texture cache folder.": "显示当前纹理缓存文件夹的大小。",
++    "Clear Texture Cache Folder": "清空纹理缓存文件夹",
++    "Deletes all cached converted textures. Note that any saved blend files will lose their textures if the cache is cleared.": "删除所有已缓存的转换纹理。清空缓存后，已保存的 blend 文件将丢失这些纹理。",
++    "Are you sure you want to delete all cached textures?": "确定要删除所有缓存纹理吗？",
++    "Directory:": "目录：",
++    "Cleared texture cache.": "已清空纹理缓存。",
++    "Set the game": "设置游戏",
++    "Path": "路径",
++    "Set the path to the natives\\STM folder inside the extracted chunk files\nThis determines where textures will be imported from\nExample: I:\\RE4_EXTRACT\\re_chunk_000\natives\\STM": "设置解包 chunk 文件中的 natives\\STM 文件夹路径\n此路径决定纹理的导入位置\n示例：I:\\RE4_EXTRACT\\re_chunk_000\natives\\STM",
++    "Add Path": "添加路径",
++    "Add path to the extracted chunk's natives\\STM\\ folder.\nExample: I:\\RE4_EXTRACT\\re_chunk_000\nnatives\\STM": "添加解包 chunk 的 natives\\STM\\ 文件夹路径。\n示例：I:\\RE4_EXTRACT\\re_chunk_000\nnatives\\STM",
++    "Remove chunk path from the list": "从列表中移除 chunk 路径",
++    "Remove Selected Path": "移除选中路径",
++    "Change the order in which files will be searched": "更改文件搜索顺序",
++    "Reorder Item": "调整项目顺序",
++    "Up": "上移",
++    "Down": "下移",
++    "Show Drag and Drop Import Options (Blender 4.1 or higher)": "显示拖放导入选项（Blender 4.1 或更高版本）",
++    "Show import options when dragging a mesh or mdf file into the 3D View.\nIf this is disabled, the default import options will be used.\nDrag and drop importing is only supported on Blender 4.1 or higher": "将 mesh 或 mdf 文件拖入 3D 视图时显示导入选项。\n禁用后将使用默认导入选项。\n拖放导入仅支持 Blender 4.1 或更高版本",
++    "Show Console During Import/Export": "导入/导出时显示控制台",
++    "When importing or exporting a file, the console will be opened so that progress can be viewed.\nNote that if the console is already opened before import or export, it will be closed instead.\n This is a limitation of Blender, there's no way to get the active state of the console window.": "导入或导出文件时打开控制台以查看进度。\n如果导入或导出前控制台已经打开，则会将其关闭。\n这是 Blender 的限制，无法获取控制台窗口当前是否处于活动状态。",
++    "Texture Cache Path": "纹理缓存路径",
++    "Location to save converted textures": "保存转换纹理的位置",
++    "Use DDS Textures (Blender 4.2 or higher)": "使用 DDS 纹理（Blender 4.2 或更高版本）",
++    "Use DDS textures when loading textures instead of converting to PNG.\nThis greatly improves mesh import speed but is only usable on Blender 4.2 or higher.\nIf the Blender version is less than 4.2, this option will do nothing": "加载纹理时直接使用 DDS，而不是转换为 PNG。\n这会显著提高网格导入速度，但仅适用于 Blender 4.2 或更高版本。\nBlender 版本低于 4.2 时此选项不起作用",
++    "Convert Tex to PNG": "将 Tex 转换为 PNG",
++    "When converting a tex file, convert it to a .png file instead of .dds": "转换 tex 文件时，将其转换为 .png 而不是 .dds",
++    "Mod File Tracking Polling Rate": "Mod 文件跟踪轮询间隔",
++    "Amount of seconds between checking for changes made to files when mod file tracking is enabled": "启用 Mod 文件跟踪后，检查文件变更的时间间隔（秒）",
++    "Save Chunk Paths Automatically": "自动保存 Chunk 路径",
++    "If a chunk path is detected when a mesh is imported, add it to the chunk path list automatically": "导入网格时检测到 chunk 路径后，自动将其添加到 chunk 路径列表",
++    "Auto-check for Update": "自动检查更新",
++    "If enabled, auto-check for updates using an interval": "启用后按设定间隔自动检查更新",
++    "Months": "月",
++    "Number of months between checking for updates": "检查更新的间隔月数",
++    "Days": "天",
++    "Number of days between checking for updates": "检查更新的间隔天数",
++    "Hours": "小时",
++    "Number of hours between checking for updates": "检查更新的间隔小时数",
++    "Minutes": "分钟",
++    "Number of minutes between checking for updates": "检查更新的间隔分钟数",
++    "Show Default Import Settings": "显示默认导入设置",
++    "Show Default Export Settings": "显示默认导出选项",
++    "Clear Scene": "清空场景",
++    "Clears all objects before importing the mesh file": "导入网格文件前清除所有对象",
++    "Load Materials": "加载材质",
++    "Load materials from the MDF2 file. This may increase the time the mesh takes to import": "从 MDF2 文件加载材质。这可能会延长网格导入时间",
++    "Load MDF Material Data": "加载 MDF 材质数据",
++    "Load Shell Fur": "加载 Shell Fur",
++    "Load shell fur data from sfur file if present": "如果存在 sfur 文件，则加载 shell fur 数据",
++    "Load Unused Textures": "加载未使用的纹理",
++    "Loads textures that have no function assigned to them in the material shader graph.\nLeaving this disabled will make materials load faster.\nOnly enable this if you plan on editing the material shader graph": "加载材质着色器节点图中未分配功能的纹理。\n禁用此项可以更快加载材质。\n只有计划编辑材质节点图时才应启用",
++    "Load Unused Material Properties": "加载未使用的材质属性",
++    "Loads material properties that have no function assigned to them in the material shader graph.\nLeaving this disabled will make materials load faster.\nOnly enable this if you plan on editing the material shader graph": "加载材质着色器节点图中未分配功能的材质属性。\n禁用此项可以更快加载材质。\n只有计划编辑材质节点图时才应启用",
++    "Use Backface Culling": "使用背面剔除",
++    "Enables backface culling on materials. May improve Blender's performance on high poly meshes.\nBackface culling will only be enabled on materials without the two sided flag": "对材质启用背面剔除，可能提升 Blender 处理高面数网格时的性能。\n仅对未启用双面标志的材质启用背面剔除",
++    "Reload Cached Textures": "重新加载缓存纹理",
++    "Convert all textures again instead of reading from already converted textures. Use this if you make changes to textures and need to reload them": "重新转换所有纹理，而不是读取已转换的纹理。修改纹理后需要重新加载时使用此项",
++    "Create Collections": "创建集合",
++    "Create a collection for the mesh and for each LOD level. Note that collections are required for exporting LODs and applying MDF changes. Leaving this option enabled is recommended": "为网格和每个 LOD 级别创建集合。导出 LOD 以及应用 MDF 修改都需要集合，建议保持启用",
++    "Only Import Armature": "仅导入骨架",
++    "Imports the armature of the mesh file, but not any of the meshes": "仅导入网格文件中的骨架，不导入网格",
++    "Import All LODs": "导入所有 LOD",
++    "Imports all LOD (level of detail) meshes. If unchecked, only the first LOD of each mesh will be imported": "导入所有 LOD（细节级别）网格。不勾选时只导入每个网格的第一个 LOD",
++    "Y Up to Z Up": "Y Up 转为 Z Up",
++    "Rotate meshes and armatures by 90 degrees. Leaving this option enabled is recommended": "将网格和骨架旋转 90 度，建议保持启用",
++    "Import Blend Shapes": "导入 Blend Shape",
++    "Imports blend shapes as shape keys if present": "如果存在 Blend Shape，则将其作为形态键导入",
++    "Import Shadow Cast Mesh": "导入阴影投射网格",
++    "Imports shadow cast meshes if present": "如果存在阴影投射网格，则导入",
++    "Merge Mesh Groups": "合并网格组",
++    "Merges all submeshes of a mesh group. IMPORTANT: MERGED MESHES CANNOT BE EXPORTED BACK TO MESH": "合并网格组中的所有子网格。重要：合并后的网格无法再导出为 mesh",
++    "Import Occlusion Mesh": "导入遮挡网格",
++    "Imports occlusion meshes if present": "如果存在遮挡网格，则导入",
++    "Import Bounding Boxes": "导入包围盒",
++    "Import mesh and bone bounding boxes for debugging purposes": "导入网格和骨骼包围盒以便调试",
++    "Selected Objects Only": "仅选中对象",
++    "Limit export to selected objects": "仅导出选中的对象",
++    "Export All LODs": "导出所有 LOD",
++    "Export Blend Shapes": "导出 Blend Shape",
++    "Exports blend shapes from mesh if present": "如果存在 Blend Shape，则从网格导出",
++    "Convert Z Up To Y Up": "Z Up 转为 Y Up",
++    "Rotates objects 90 degrees for export. Leaving this option enabled is recommended": "导出时将对象旋转 90 度，建议保持启用",
++    "Auto Solve Repeated UVs": "自动解决重复 UV",
++    "Split Sharp Edges": "拆分锐边",
++    "Use Blender Material Names": "使用 Blender 材质名称",
++    "Preserve Bone Matrices": "保留骨骼矩阵",
++    "Export Bounding Boxes": "导出包围盒",
++    "Texture cache path is very long.": "纹理缓存路径过长。",
++    "File paths may exceed the max length of 255 characters and fail to convert.": "文件路径可能超过 255 个字符的最大长度，导致转换失败。",
++    "Consider changing this to a shorter path such as C:\\REMeshTextureCache.": "建议改为更短的路径，例如 C:\\REMeshTextureCache。",
++    "Default Mesh Import Settings": "默认网格导入设置",
++    "Default Mesh Export Options": "默认网格导出选项",
++    "Chunk Path List": "Chunk 路径列表",
++    "Move Up": "上移",
++    "Move Down": "下移",
++    "Donate on Ko-fi": "在 Ko-fi 上捐赠",
++
++    # Mesh panels, operators and file dialogs.
++    "RE Mesh Tools": "RE Mesh 工具",
++    "Armature Tools": "骨架工具",
++    "RE Asset Extensions": "RE Asset 扩展",
++    "Update RE Asset Library for more options.": "更新 RE Asset Library 以获得更多选项。",
++    "Delete Loose Geometry": "删除松散几何体",
++    "Deletes loose vertices and edges with no faces on selected meshes": "删除选中网格中没有面的松散顶点和边",
++    "Rename Meshes": "重命名网格",
++    "Renames selected meshes to RE mesh naming scheme (Example: Group_0_Sub_0__Shirts_Mat)": "按 RE 网格命名规则重命名选中网格（示例：Group_0_Sub_0__Shirts_Mat）",
++    "Remove Empty Vertex Groups": "移除空顶点组",
++    "Limit Total and Normalize All": "限制总权重并全部归一化",
++    "Apply Data to attribute.": "将数据应用到属性。",
++    "Weight Limit": "权重上限",
++    "4 Weights": "4 个权重",
++    "Safest option but potentially lower weight quality": "最安全的选项，但权重质量可能较低",
++    "6 Weights (SF6)": "6 个权重（SF6）",
++    "Maximum amount of weights for SF6": "SF6 的最大权重数量",
++    "8 Weights": "8 个权重",
++    "Note that certain materials may not support 8 weights": "某些材质可能不支持 8 个权重",
++    "12 Weights (MH Wilds or Newer)": "12 个权重（MH Wilds 或更新版本）",
++    "This is only supported in MH Wilds (and newer potentially)\nNote that some materials may not support 12 weights": "仅 MH Wilds（以及可能的更新版本）支持此项\n某些材质可能不支持 12 个权重",
++    "Create Mesh Collection": "创建网格集合",
++    "Creates a collection for RE Engine meshes": "为 RE Engine 网格创建集合",
++    "Mesh Name": "网格名称",
++    "The name of the newly created mesh collection": "新建网格集合的名称",
++    "LOD Amount": "LOD 数量",
++    "The amount of lower quality model levels to switch between.\nLeave this at 1 unless you have a set of lower quality models": "可切换的低质量模型级别数量。\n除非你有一组低质量模型，否则请保持为 1",
++    "Invalid mesh collection name.": "网格集合名称无效。",
++    "RE Batch Exporter": "RE 批量导出器",
++    "Export all selected RE Engine files quickly": "快速导出所有选中的 RE Engine 文件",
++    "Check All Items": "勾选所有项目",
++    "Select all files to be exported": "选择所有要导出的文件",
++    "Uncheck All Items": "取消勾选所有项目",
++    "Deselect all files to be exported": "取消选择所有要导出的文件",
++    "Skip Conversion Prompt": "跳过转换提示",
++    "Batch Export Files": "批量导出文件",
++    "Export Settings": "导出设置",
++    "Export Path": "导出路径",
++    "Path is empty or missing the file version number on the end. ": "路径为空，或末尾缺少文件版本号。 ",
++    "Select a file from the list to configure export settings.": "从列表中选择文件以配置导出设置。",
++    "Solve Repeated UVs": "解决重复 UV",
++    "Splits connected UV islands": "拆分相连的 UV 岛",
++    "Quick Batch Export": "快速批量导出",
++    "Single click batch export. Works the same as RE Batch Export but there is no prompt to configure settings.\nThe previous settings of RE Batch Export are used.": "单击即可批量导出。功能与 RE 批量导出相同，但不会弹出设置窗口。\n使用 RE 批量导出的上次设置。",
++    "Import RE Mesh": "导入 RE Mesh",
++    "Export RE Mesh": "导出 RE Mesh",
++    "Mesh Version:": "Mesh 版本：",
++    "Mesh Collection:": "Mesh 集合：",
++    "Merge With Armature": "与骨架合并",
++    "Material Settings": "材质设置",
++    "Manual MDF Path": "手动 MDF 路径",
++    "Advanced Options": "高级选项",
++    "Show Advanced Options": "显示高级选项",
++    "Show Material Options": "显示材质选项",
++    "Collection is not a mesh collection.": "集合不是网格集合。",
++    "Chosen collection doesn't exist.": "所选集合不存在。",
++    "RE Mesh (.mesh.x) (Model)": "RE Mesh（.mesh.x）（模型）",
++    "RE MDF (.mdf2.x) (Materials)": "RE MDF（.mdf2.x）（材质）",
++    "RE FBXSkel (.fbxskel.x) (Skeleton)": "RE FBXSkel（.fbxskel.x）（骨架）",
++    "RE SFur (.sfur.x) (Shell Fur)": "RE SFur（.sfur.x）（Shell Fur）",
++
++    # MDF panels, operators and material properties.
++    "RE MDF Tools": "RE MDF 工具",
++    "Active MDF Material Collection": "当前 MDF 材质集合",
++    "Active Game": "当前游戏",
++    "MDF Material Presets": "MDF 材质预设",
++    "Premade MDF materials.": "预制 MDF 材质。",
++    "MDF Preview": "MDF 预览",
++    "View MDF materials in Blender.": "在 Blender 中查看 MDF 材质。",
++    "MDF Load Settings": "MDF 加载设置",
++    "RE MDF Material Settings": "RE MDF 材质设置",
++    "Flags": "标志",
++    "Property List": "属性列表",
++    "Texture Bindings": "纹理绑定",
++    "MMTRS Data": "MMTRS 数据",
++    "GPBF Data": "GPBF 数据",
++    "Do not change these unless you know what you're doing.": "除非你清楚其作用，否则不要修改这些值。",
++    "Create MDF Collection": "创建 MDF 集合",
++    "Create an MDF collection for putting materials into.\nNOTE: The name of the collection is not important, you can rename it if you want to": "创建用于放置材质的 MDF 集合。\n注意：集合名称并不重要，可以按需重命名",
++    "MDF Name": "MDF 名称",
++    "The name of the newly created mdf collection.\nUse the same name as the mesh file": "新建 MDF 集合的名称。\n请使用与网格文件相同的名称",
++    "Reindex Materials": "重新索引材质",
++    "Reorders the materials and sets their names to the name set in the custom properties. This is done automatically upon exporting": "重新排列材质，并将其名称设置为自定义属性中的名称。导出时会自动执行",
++    "Add Preset Material": "添加预设材质",
++    "Add a new material to the file and configure it to the selected preset": "向文件添加新材质，并按选定预设进行配置",
++    "Apply Active MDF": "应用当前 MDF",
++    "Applies the Active MDF Collection to the specified Mesh Collection.\nThis will remove all materials on the mesh and rebuild them using the active MDF.\nTextures will be fetched from the chunk path set in the addon preferences": "将当前 MDF 集合应用到指定网格集合。\n这会移除网格上的所有材质，并使用当前 MDF 重新构建。\n纹理将从插件偏好设置中的 chunk 路径获取",
++    "Open Preset Folder": "打开预设文件夹",
++    "Save Selected As Preset": "将选中项保存为预设",
++    "Save the selected material object as a preset for easy reuse and sharing. Presets can be accessed using the Open Preset Folder button": "将选中的材质对象保存为预设，以便复用和分享。可通过“打开预设文件夹”按钮访问预设",
++    "Enter Preset Name": "输入预设名称",
++    "Find and Replace": "查找和替换",
++    "Find and replace specified strings inside texture paths": "在纹理路径中查找并替换指定字符串",
++    "Find": "查找",
++    "Replace With": "替换为",
++    "Count": "数量",
++    "Nullify Texture Bindings": "置空纹理绑定",
++    "Replaces the texture bindings of all selected materials with null paths.\nThis is useful for when you want to assign your own textures to a material, but don't know what every texture map does.\nExperimental. May not work correctly for all materials": "将所有选中材质的纹理绑定替换为空路径。\n当你想为材质指定自己的纹理但不清楚每张纹理的作用时，此功能很有用。\n实验性功能，可能无法正确处理所有材质",
++    "Mod Directory": "Mod 目录",
++    "{count} instances found.": "找到 {count} 处。",
++    "Set the collection containing the MDF file to edit.\nHint: MDF collections are blue.\nYou can create a new MDF collection by pressing the \"Create MDF Collection\" button": "设置包含待编辑 MDF 文件的集合。\n提示：MDF 集合为蓝色。\n可以点击“创建 MDF 集合”按钮新建集合",
++    "Set the game to determine which presets to use and which chunk paths to read textures from": "设置游戏，以决定使用哪些预设以及从哪些 chunk 路径读取纹理",
++    "Set preset to be used by Add Material Preset button": "设置“添加材质预设”按钮使用的预设",
++    "Set the mesh collection to apply the active MDF collection to.\nHint: Mesh collections are red": "设置要应用当前 MDF 集合的网格集合。\n提示：网格集合为红色",
++    "Set the sfur collection to be edited.": "设置要编辑的 sfur 集合。",
++    "Set the directory containing images to be converted to .tex files": "设置包含待转换为 .tex 文件的图像的目录",
++    "Create Streaming Textures": "创建 Streaming 纹理",
++    "Open Folder After Conversion": "转换后打开文件夹",
++    "Opens the directory containing the converted image files after conversion": "转换后打开包含转换图像文件的目录",
++    "Hide Material In Game": "在游戏中隐藏材质",
++    "Bit Flag A": "位标志 A",
++    "Integer representation of all flag values.\nChanging this will change all of the flag values": "所有标志值的整数表示。\n修改此值会改变所有标志值",
++    "Bit Flag B": "位标志 B",
++    "Shader LOD Num": "着色器 LOD 编号",
++    "Do not change this unless you know what you're doing. Controls MMTRS LODs.": "除非你清楚其作用，否则不要修改。此值控制 MMTRS LOD。",
++    "Bake Texture Array Size": "烘焙纹理数组大小",
++    "Do not change this unless you know what you're doing.": "除非你清楚其作用，否则不要修改。",
++    "Change Flag Values": "更改标志值",
++    "Data Type": "数据类型",
++    "Float": "浮点数",
++    "Bool": "布尔值",
++    "Vec4": "Vec4",
++    "Filter": "筛选",
++    "Search the list for items that contain this string.\nPress enter to search": "搜索包含此字符串的列表项目。\n按 Enter 开始搜索",
++    "Indices": "索引",
++    "Material Name": "材质名称",
++    "Master Material Path": "主材质路径",
++    "Material Shader Type": "材质着色器类型",
++    "Linked Material": "关联材质",
++    "Collection is not a MDF collection.": "集合不是 MDF 集合。",
++    "MDF Version:": "MDF 版本：",
++    "MDF Collection:": "MDF 集合：",
++
++    # TEX conversion.
++    "RE Tex Conversion": "RE Tex 转换",
++    "Drag files onto the 3D view to convert.": "将文件拖到 3D 视图中进行转换。",
++    "Convert Image Directory": "转换图像目录",
++    "Convert Image/RE Tex Files": "转换图像/RE Tex 文件",
++    "Set compression format to be used by converted PNG files.": "设置转换后的 PNG 文件所使用的压缩格式。",
++    "Generate Mipmaps": "生成 Mipmap",
++    "Generates lower quality texture levels for lower texture settings. Leave this on unless these are UI textures": "为较低纹理设置生成低质量纹理级别。除非是 UI 纹理，否则请保持启用",
++    "Image To Tex Conversion": "图像转 Tex",
++    "Convert Directory to Tex": "将目录转换为 Tex",
++    "Copy Converted Tex Files": "复制转换后的 Tex 文件",
++    "File Name": "文件名",
++    "Compression": "压缩",
++    "BC1 Linear": "BC1 线性",
++    "BC1 sRGB": "BC1 sRGB",
++    "BC7 Linear (Recommended)": "BC7 线性（推荐）",
++    "BC7 sRGB (Recommended)": "BC7 sRGB（推荐）",
++    "R8G8B8A8 Linear": "R8G8B8A8 线性",
++    "R8G8B8A8 sRGB": "R8G8B8A8 sRGB",
++
++    # SFur and FBXSkel tools.
++    "RE SFur Tools": "RE SFur 工具",
++    "Active SFur Collection": "当前 SFur 集合",
++    "RE Shell Fur Settings": "RE Shell Fur 设置",
++    "Fur effects are not shown in Blender yet.": "Blender 目前还不会显示 Fur 效果。",
++    "Using EMV Engine to tweak fur parameters while in game is advised.": "建议在游戏运行时使用 EMV Engine 调整 Fur 参数。",
++    "Create SFur Collection": "创建 SFur 集合",
++    "SFur Name": "SFur 名称",
++    "Reindex Fur Entries": "重新索引 Fur 条目",
++    "Add Shell Fur": "添加 Shell Fur",
++    "Apply Shell Fur Preview": "应用 Shell Fur 预览",
++    "Grooming Texture Path": "梳理纹理路径",
++    "Shell Count": "Shell 数量",
++    "Shell Thin Type": "Shell 薄型类型",
++    "Ascending": "递增",
++    "Descending": "递减",
++    "Intermediate": "中间",
++    "Grooming Tex Coord Type": "梳理纹理坐标类型",
++    "UV Primary": "主 UV",
++    "UV Secondary": "次 UV",
++    "Shell Height": "Shell 高度",
++    "Bend Rate": "弯曲率",
++    "Bend Root Rate": "根部弯曲率",
++    "Normal Transform Rate": "法线变换率",
++    "Stiffness": "刚度",
++    "Stiffness Distribution": "刚度分布",
++    "Spring Coefficient": "弹簧系数",
++    "Damping": "阻尼",
++    "Gravity Force Scale": "重力系数",
++    "Direct Wind Force Scale": "直接风力系数",
++    "Is Force Two Side": "力为双面",
++    "Is Force Alpha Test": "力使用 Alpha 测试",
++    "Unknown Flags": "未知标志",
++    "Link Armature Bones": "关联骨架骨骼",
++    "Clear Bone Linkages": "清除骨骼关联",
++    "Main Armature": "主骨架",
++    "Check All Armatures": "勾选所有骨架",
++    "Uncheck All Armatures": "取消勾选所有骨架",
++    "Link Main Armature": "关联主骨架",
++    "All checked armatures will be constrained to main armature.": "所有勾选的骨架都会约束到主骨架。",
++    "Armature Count:": "骨架数量：",
++    "FBXSkel Version:": "FBXSkel 版本：",
++    "FBXSkel Armature:": "FBXSkel 骨架：",
++    "Object is not an armature.": "对象不是骨架。",
++    "No armature is selected.": "未选择骨架。",
++    "Armature doesn't exist.": "骨架不存在。",
++    "Export RE FBXSkel": "导出 RE FBXSkel",
++    "Import RE FBXSkel": "导入 RE FBXSkel",
++
++    # Mod workspace and material conversion.
++    "RE Mod Dev Tools": "RE Mod 开发工具",
++    "Create Mod Workspace": "创建 Mod 工作区",
++    "Edit Mod Workspace": "编辑 Mod 工作区",
++    "Porting Tools": "移植工具",
++    "File Tracking - ON": "文件跟踪 - 开",
++    "File Tracking - OFF": "文件跟踪 - 关",
++    "Edit modinfo.ini": "编辑 modinfo.ini",
++    "Convert Model to RE Engine": "将模型转换为 RE Engine",
++    "Mode": "模式",
++    "Bake Materials": "烘焙材质",
++    "Generate Placeholder Textures": "生成占位纹理",
++    "Mesh File Name": "网格文件名",
++    "Material File Name": "材质文件名",
++    "Texture Path": "纹理路径",
++    "Skip Ambient Occlusion Baking": "跳过环境光遮蔽烘焙",
++    "Save Texture Bakes": "保存纹理烘焙结果",
++    "Use Existing Bakes": "使用已有烘焙结果",
++    "Move Existing Collection Objects": "移动现有集合对象",
++    "DEBUG - Bake Only": "调试 - 仅烘焙",
++    "Material List": "材质列表",
++    "Material Settings": "材质设置",
++    "Name": "名称",
++    "Texture Set": "纹理集",
++    "Resolution": "分辨率",
++    "Invalid texture resolution.": "纹理分辨率无效。",
++    "Must be a power of two. (256,512,1024,2048,etc.)": "必须是 2 的幂（256、512、1024、2048 等）。",
++    "Extra Options:": "额外选项：",
++    "Bake Ambient Occlusion (Slow)": "烘焙环境光遮蔽（慢）",
++    "Bake AO to UV2": "将 AO 烘焙到 UV2",
++    "Toggle Mod File Tracking": "切换 Mod 文件跟踪",
++    "Copy Mod Files to Game": "将 Mod 文件复制到游戏",
++    "Uninstall Mod Files From Game": "从游戏中卸载 Mod 文件",
++    "Launch Game": "启动游戏",
++    "Open Mod Workspace": "打开 Mod 工作区",
++    "Steam (Older Titles)": "Steam（较早作品）",
++    "Steam": "Steam",
++    "Game Pass": "Game Pass",
++    "Save .blend file to the mod workspace": "将 .blend 文件保存到 Mod 工作区",
++    "Open mod workspace after creation": "创建后打开 Mod 工作区",
++    "Invalid internal name, only alphanumeric characters, hyphens and underscores can be used": "内部名称无效，只能使用字母数字字符、连字符和下划线",
++    "Mod files will be copied to:": "Mod 文件将复制到：",
++    "Mod files will be saved to:": "Mod 文件将保存到：",
++    "Set the work directory and mod name to determine where to create the new mod directory.": "设置工作目录和 Mod 名称，以确定新 Mod 目录的位置。",
++    "This feature is experimental and may not work with all material setups.": "此功能为实验性功能，可能无法适用于所有材质设置。",
++}
++
++
++# Additional strings are kept in a separate table so new Blender UI entries
++# can be added without disturbing the main catalogue above.  This table
++# includes long property descriptions and stable enum labels that are easy to
++# miss when reviewing only panel and operator classes.
++_EXTRA_UI_MESSAGES = {
++    # Dynamic labels used by draw() methods.
++    "Cache Size: {value}": "缓存大小：{value}",
++    "Last Checked: {value}": "上次检查：{value}",
++    "Files ({count} selected)": "文件（已选择 {count} 个）",
++    "Type: {type}": "类型：{type}",
++    "Active Game: {game} - Tex Version: {version}": "当前游戏：{game} - Tex 版本：{version}",
++    "File Count: {count}": "文件数量：{count}",
++    "Main Armature: {name}": "主骨架：{name}",
++    "Armature Count: {count}": "骨架数量：{count}",
++    "{fail_count}/{total_count} files failed to export.\nSee console for details. (Window > Toggle System Console)": "{fail_count}/{total_count} 个文件导出失败。\n请查看控制台获取详情。（窗口 > 切换系统控制台）",
++    "Texture Conversion": "纹理转换",
++    "Convert to RE Tex": "转换为 RE Tex",
++    "SFur Version:": "SFur 版本：",
++    "SFur Collection:": "SFur 集合：",
++    "Export RE MDF": "导出 RE MDF",
++    "Import RE MDF": "导入 RE MDF",
++    "Export RE SFur": "导出 RE SFur",
++    "Import RE SFur": "导入 RE SFur",
++    "File Path": "文件路径",
++    "Custom Properties": "自定义属性",
++    "File handler for RE Mesh importing": "RE Mesh 导入文件处理器",
++    "File handler for RE MDF importing": "RE MDF 导入文件处理器",
++    "File handler for RE Tex Conversion": "RE Tex 转换文件处理器",
++    "File handler for RE FBXSkel importing": "RE FBXSkel 导入文件处理器",
++    "File handler for RE SFur importing": "RE SFur 导入文件处理器",
++
++    # Mesh import/export descriptions omitted from the compact table.
++    "Export all LODs. If disabled, only LOD0 will be exported. Note that LODs meshes must be grouped inside a collection for each level and that collection must be contained in another collection. See a mesh with LODs imported for reference on how it should look. A target collection must also be set": "导出所有 LOD。禁用时只导出 LOD0。LOD 网格必须按级别放在各自的集合中，并且这些集合还要包含在一个外层集合中。可以参考导入的 LOD 网格结构。还必须设置目标集合",
++    "Exports the original bounding boxes from the \"Import Bounding Boxes\" import option. New bounding boxes will be generated for any bones that do not have them": "导出“导入包围盒”选项导入的原始包围盒。没有包围盒的骨骼会生成新的包围盒",
++    "Export using the original matrices of the imported bones. Note that this option only applies armatures imported with this addon. Any newly added bones will have new matrices calculated": "使用导入骨骼的原始矩阵导出。此选项仅适用于通过本插件导入的骨架，新添加的骨骼会计算新的矩阵",
++    "Splits connected UV islands if present. The mesh format does not allow for multiple uvs assigned to a vertex.\nNOTE: This will modify the exported mesh. If auto smooth is disabled on the mesh, the normals may change": "如果存在相连的 UV 岛则将其拆分。网格格式不允许一个顶点分配多个 UV。\n注意：这会修改导出的网格。如果网格未启用自动平滑，法线可能发生变化",
++    "Splits connected UV islands if present. The mesh format does not allow for multiple uvs assigned to a vertex.\nNOTE: This will modify the object and may slightly increase time taken to export": "如果存在相连的 UV 岛则将其拆分。网格格式不允许一个顶点分配多个 UV。\n注意：这会修改对象，并可能略微增加导出时间",
++    "Path to where to export the file to": "文件导出位置",
++    "Set which game to export the mesh for": "设置要导出网格的游戏",
++    "Set the collection containing the meshes to be exported.\nNote: Mesh collections are red and end with .mesh": "设置包含待导出网格的集合。\n注意：网格集合为红色，名称以 .mesh 结尾",
++    "Set which game to export the MDF for": "设置要导出 MDF 的游戏",
++    "Set the MDF collection to be exported\nNote: MDF collections are blue and end with .mdf2": "设置要导出的 MDF 集合\n注意：MDF 集合为蓝色，名称以 .mdf2 结尾",
++    "Set which game to export the FBXSkel for": "设置要导出 FBXSkel 的游戏",
++    "Set the armature to be exported": "设置要导出的骨架",
++    "Set the SFur collection to be exported\nNote: SFur collections are brown and end with .sfur": "设置要导出的 SFur 集合\n注意：SFur 集合为棕色，名称以 .sfur 结尾",
++    "Set which game to export the MDF for": "设置要导出 MDF 的游戏",
++    "Set which game to export the mesh for": "设置要导出网格的游戏",
++    "Collection is not a SFUR collection.": "集合不是 SFUR 集合。",
++    "Chosen collection doesn't exist.": "所选集合不存在。",
++    "Set the collection containing the meshes to be exported.\nNote: Mesh collections are red and end with .mesh": "设置包含待导出网格的集合。\n注意：网格集合为红色，名称以 .mesh 结尾",
++    "Set which game to export the FBXSkel for": "设置要导出 FBXSkel 的游戏",
++
++    # Material conversion and SFur property descriptions.
++    "Bake all materials into standard PBR format and convert them into RE Engine texture formats.\nThis can take a long time depending on texture resolution and PC specs": "将所有材质烘焙为标准 PBR 格式，并转换为 RE Engine 纹理格式。\n根据纹理分辨率和电脑配置，可能需要较长时间",
++    "Generate blank placeholder textures for the converted materials in the textures_final directory.\nUse this option if you don't have materials set up in Blender for your model or if you don't want to wait for baking.\nTip: You can apply changes to textures you made using the Apply Active MDF button in the RE MDF tools tab": "在 textures_final 目录为转换后的材质生成空白占位纹理。\n如果模型在 Blender 中没有设置材质，或不想等待烘焙，请使用此选项。\n提示：可以在 RE MDF 工具页签中使用“应用当前 MDF”按钮应用纹理修改",
++    "Save intermediary baked textures to the textures_bake directory.": "将中间烘焙纹理保存到 textures_bake 目录。",
++    "If textures already exist in the textures_bake directory, use them instead of rebaking": "如果 textures_bake 目录中已有纹理，则使用它们而不是重新烘焙",
++    "Only bake the textures, do not pack or change objects": "仅烘焙纹理，不打包纹理或修改对象",
++    "Bakes ambient occlusion using the second uv map if present. AO is baked to UV2 for hair in certain games": "如果存在第二张 UV 贴图，则使用它烘焙环境光遮蔽。某些游戏的头发会将 AO 烘焙到 UV2",
++    "Bake ambient occlusion texture, this may give mixed results. You may want to use the original ambient occlusion texture if you have one.\nThis may take a very long time to bake depending on your specs and quality of the model": "烘焙环境光遮蔽纹理，结果可能有所不同。如果已有原始环境光遮蔽纹理，可以考虑使用它。\n根据电脑配置和模型质量，烘焙可能需要很长时间",
++    "Resolution must be a power of two (256,512,1024,2048,etc.)": "分辨率必须是 2 的幂（256、512、1024、2048 等）",
++    "This is the name that will be used by the RE Engine material.\nName must be only alphanumeric characters and hyphens/underscores": "RE Engine 材质将使用此名称。\n名称只能包含字母数字字符和连字符/下划线",
++    "Set the name of the texture set for this material.\nExample: Material_00 would result in:\nMaterial_00_ALBD.tex\nMaterial_00_NRRO.tex\nMaterial_00_ATOS.tex\netc.": "设置此材质的纹理集名称。\n示例：Material_00 会生成：\nMaterial_00_ALBD.tex\nMaterial_00_NRRO.tex\nMaterial_00_ATOS.tex\n等文件。",
++    "Choose which preset material to convert this material into.\nThis determines what texture maps the material will use and the properties the material will have": "选择要将此材质转换成的预设材质。\n这会决定材质使用的纹理贴图和材质属性",
++    "Old Material Name": "旧材质名称",
++    "New Material Name": "新材质名称",
++    "Texture Set Name": "纹理集名称",
++    "X Resolution": "X 分辨率",
++    "Y Resolution": "Y 分辨率",
++    "Material Preset": "材质预设",
++    "Bake Ambient Occlusion (Slow)": "烘焙环境光遮蔽（慢）",
++    "Bake AO to UV2": "将 AO 烘焙到 UV2",
++    "MDF Material to assign shell fur to.\nNote that the material must be a shell fur material. (Check if the mmtr path has shell fur in it)": "要分配 Shell Fur 的 MDF 材质。\n注意：材质必须是 shell fur 材质（检查 mmtr 路径中是否含有 shell fur）",
++    "Texture used to determine the direction that the fur will point.\nTip: If you don't have a grooming texture, you can use a standard normal map for a somewhat decent result.": "用于决定 Fur 指向的纹理。\n提示：如果没有梳理纹理，可以使用普通法线贴图获得尚可的效果。",
++    "Create an SFur collection for putting shell fur data into.\nNOTE: The name of the collection is not important, you can rename it if you want to": "创建用于放置 shell fur 数据的 SFur 集合。\n注意：集合名称并不重要，可以按需重命名",
++    "The name of the newly created sfur collection.\nUse the same name as the mesh file": "新建 sfur 集合的名称。\n请使用与网格文件相同的名称",
++    "Reorders the shell fur entries and sets their names to the name set in the custom properties. This is done automatically upon exporting": "重新排列 shell fur 条目，并将其名称设置为自定义属性中的名称。导出时会自动执行",
++    "Add a new shell fur entry.\nTip: Selecting an MDF material beforehand will automatically set the name for the new shell fur entry.": "添加新的 shell fur 条目。\n提示：提前选择 MDF 材质会自动设置新 shell fur 条目的名称。",
++    "Applies the Active SFur Collection to the specified Mesh Collection.\nThis is for previewing in Blender only and has no effect on the exported file.": "将当前 SFur 集合应用到指定网格集合。\n这仅用于在 Blender 中预览，不会影响导出文件。",
++    "Select all armatures to be linked": "选择所有要关联的骨架",
++    "Deselect all armatures to be linked": "取消选择所有要关联的骨架",
++    "Link bones from different armatures to a main armature. This copies all transforms on the main armature to all chosen armatures.\nThe intended use is for constraining bones to an FBXSkel armature with an animation applied.\nAn armature must be selected": "将不同骨架中的骨骼关联到主骨架。此操作会将主骨架的所有变换复制到选中的骨架。\n用于将骨骼约束到带有动画的 FBXSkel 骨架。\n必须选择一个骨架",
++    "Removes all bone linkages on the selected armatures.\n": "移除选中骨架上的所有骨骼关联。\n",
++
++    # Texture conversion descriptions.
++    "Opens a window to select textures to convert. Selected image files will be converted to .tex and tex files will be converted to dds/png (configurable in preferences).\nIf you are using Blender 4.1 or higher, you can drag .tex or .dds files into the 3D view to convert them.\nSupported File Types:\n.dds, .png, .tga, .tiff": "打开窗口选择要转换的纹理。选中的图像文件会转换为 .tex，tex 文件会转换为 dds/png（可在偏好设置中配置）。\n使用 Blender 4.1 或更高版本时，可以将 .tex 或 .dds 文件拖到 3D 视图中转换。\n支持的文件类型：\n.dds、.png、.tga、.tiff",
++    "Skip prompt to convert images to DDS.\nIf non DDS files are selected, the compression type will be set automatically": "跳过将图像转换为 DDS 的提示。\n如果选中非 DDS 文件，将自动设置压缩类型",
++    "Internal, used to determine if called by a script or by user": "内部属性，用于判断是由脚本还是用户调用",
++    "Converts all image files in the chosen directory to .tex\nConverted files will be saved inside a folder called \"converted\"\nSupported File Types:\n.dds, .png, .tga, .tiff": "将选定目录中的所有图像文件转换为 .tex\n转换后的文件会保存到名为“converted”的文件夹中\n支持的文件类型：\n.dds、.png、.tga、.tiff",
++    "Copies the textures in the converted tex folder into the specified Mod Natives Directory.\nThe textures are placed at the paths set in the active MDF collection": "将 converted tex 文件夹中的纹理复制到指定的 Mod Natives 目录。\n纹理会放到当前 MDF 集合设置的路径中",
++    "Low quality compression, 1 bit alpha. Smaller file size. Use with non Albedo textures": "低质量压缩，1 位 Alpha。文件较小，用于非 Albedo 纹理",
++    "Low quality compression, 1 bit alpha. Smaller file size. Use with Albedo textures": "低质量压缩，1 位 Alpha。文件较小，用于 Albedo 纹理",
++    "High quality compression, full alpha support. Use with non Albedo textures": "高质量压缩，完整支持 Alpha，用于非 Albedo 纹理",
++    "High quality compression, full alpha support. Use with Albedo textures": "高质量压缩，完整支持 Alpha，用于 Albedo 纹理",
++    "Large file size. Use this for lossless non Albedo textures": "文件较大，用于无损非 Albedo 纹理",
++    "Large file size. Use for lossless Albedo textures": "文件较大，用于无损 Albedo 纹理",
++
++    # Mod workspace properties and platform choices.
++    "Choose which game you're creating the mod for. This is used to determine which asset library to extract files from": "选择要制作 Mod 的游戏，用于决定从哪个资源库提取文件",
++    "Set where you downloaded the game from. This is used to determine the path needed to place files": "设置游戏的来源，用于确定放置文件所需的路径",
++    "(x64) Choose this option for DMC5 and the non ray tracing versions of RE2 and RE3. (Before 2021)": "（x64）DMC5 以及 RE2、RE3 非光线追踪版本使用此选项（2021 年以前）。",
++    "(STM) Choose this option for all newer titles. (2021 or newer)": "（STM）所有较新作品使用此选项（2021 年及以后）。",
++    "(MSG) Choose this option if you own the Microsoft Game Pass version of the game.": "（MSG）拥有 Microsoft Game Pass 版本游戏时使用此选项。",
++    "Location to place the newly created mod workspace folder": "新建 Mod 工作区文件夹的位置",
++    "Save the current blend file to the newly created mod workspace directory": "将当前 blend 文件保存到新建的 Mod 工作区目录",
++    "After the mod workspace is created, open it in File Explorer": "创建 Mod 工作区后在文件资源管理器中打开",
++    "Set the collection to place converted meshes. If an existing collection is chosen, all existing meshes in it will be moved into a collection called Removed Meshes": "设置放置转换后网格的集合。如果选择现有集合，其中的所有网格会移到名为 Removed Meshes 的集合",
++    "Set the collection to place converted materials. If an existing collection is chosen, all existing materials in it will be moved into a collection called Removed Materials": "设置放置转换后材质的集合。如果选择现有集合，其中的所有材质会移到名为 Removed Materials 的集合",
++    "Set the path to place custom textures at": "设置放置自定义纹理的路径",
++    "When enabled, any changes made to files in the modOutput directory will automatically be copied to the game directory.\nThis allows for quick testing of changes while in game.\nRE Asset Library must be installed and the asset library for the game must be set up": "启用后，modOutput 目录中的文件变更会自动复制到游戏目录。\n可用于在游戏中快速测试修改。\n必须安装 RE Asset Library 并设置对应游戏的资源库",
++
++    # MDF shader enum labels and technical flag names remain recognizable.
++    "Set shader type. Note that these values are from MH Wilds and may display incorrectly on different games": "设置着色器类型。注意：这些值来自 MH Wilds，在其他游戏中可能显示不正确",
++    "Standard (0)": "Standard（0）",
++    "Decal (1)": "Decal（1）",
++    "DecalStencil (2)": "DecalStencil（2）",
++    "SeparateAlphaDecal (3)": "SeparateAlphaDecal（3）",
++    "DecalWithMetallic (4)": "DecalWithMetallic（4）",
++    "DecalNRMR (5)": "DecalNRMR（5）",
++    "Transparent (6)": "Transparent（6）",
++    "TransparentStencil (7)": "TransparentStencil（7）",
++    "Distortion (8)": "Distortion（8）",
++    "PrimitiveMesh (9)": "PrimitiveMesh（9）",
++    "PrimitiveSolidMesh (10)": "PrimitiveSolidMesh（10）",
++    "Water (11)": "Water（11）",
++    "SpeedTree (12)": "SpeedTree（12）",
++    "GUI (13)": "GUI（13）",
++    "GUIMesh (14)": "GUIMesh（14）",
++    "GUIMeshTransparent (15)": "GUIMeshTransparent（15）",
++    "ExpensiveTransparent (16)": "ExpensiveTransparent（16）",
++    "Forward (17)": "Forward（17）",
++    "RenderTarget (18)": "RenderTarget（18）",
++    "PostProcess (19)": "PostProcess（19）",
++    "PrimitiveMaterial (20)": "PrimitiveMaterial（20）",
++    "PrimitiveSolidMaterial (21)": "PrimitiveSolidMaterial（21）",
++    "PrimitiveSolidMaterialExpensive (22)": "PrimitiveSolidMaterialExpensive（22）",
++    "SpineMaterial (23)": "SpineMaterial（23）",
++    "VolumetricFog (24)": "VolumetricFog（24）",
++    "ShellFurMaterial (25)": "ShellFurMaterial（25）",
++    "VolumeDecal (26)": "VolumeDecal（26）",
++    "AlembicMesh (27)": "AlembicMesh（27）",
++    "AlembicMeshForward (28)": "AlembicMeshForward（28）",
++    "AlembicMeshTransparent (29)": "AlembicMeshTransparent（29）",
++    "MarchingCubes (30)": "MarchingCubes（30）",
++    "MarchingCubesForward (31)": "MarchingCubesForward（31）",
++    "MarchingCubesTransparent (32)": "MarchingCubesTransparent（32）",
++    "Strands (33)": "Strands（33）",
++    "Eyeball (34)": "Eyeball（34）",
++    "EyeballPostProcess (35)": "EyeballPostProcess（35）",
++    "NFXTransparent (36)": "NFXTransparent（36）",
++    "Cloudscape2 (37)": "Cloudscape2（37）",
++    "CloudscapeReserved (38)": "CloudscapeReserved（38）",
++    "VolumeSolidMaterial (39)": "VolumeSolidMaterial（39）",
++    "VolumeDecalMetallic (40)": "VolumeDecalMetallic（40）",
++    "*SF6 (version 31) or newer only": "*仅限 SF6（版本 31）及更新版本",
++    "*SF6 (version 31) or newer only, this bit is a part of TessFactor on earlier versions": "*仅限 SF6（版本 31）及更新版本，早期版本中此位属于 TessFactor",
++
++    # Stable technical properties intentionally keep their identifiers.
++    "BaseTwoSideEnable": "BaseTwoSideEnable",
++    "BaseAlphaTestEnable": "BaseAlphaTestEnable",
++    "ShadowCastDisable": "ShadowCastDisable",
++    "VertexShaderUsed": "VertexShaderUsed",
++    "EmissiveUsed": "EmissiveUsed",
++    "TessellationEnable": "TessellationEnable",
++    "EnableIgnoreDepth": "EnableIgnoreDepth",
++    "AlphaMaskUsed": "AlphaMaskUsed",
++    "ForcedTwoSideEnable": "ForcedTwoSideEnable",
++    "TwoSideEnable": "TwoSideEnable",
++    "TransparentZPostPassEnable*": "TransparentZPostPassEnable*",
++    "TessFactor": "TessFactor",
++    "PhongFactor": "PhongFactor",
++    "RoughTransparentEnable": "RoughTransparentEnable",
++    "ForcedAlphaTestEnable": "ForcedAlphaTestEnable",
++    "AlphaTestEnable": "AlphaTestEnable",
++    "SSSProfileUsed": "SSSProfileUsed",
++    "EnableStencilPriority": "EnableStencilPriority",
++    "RequireDualQuaternion": "RequireDualQuaternion",
++    "PixelDepthOffsetUsed": "PixelDepthOffsetUsed",
++    "NoRayTracing": "NoRayTracing",
++    "TransparentDistortionEnable": "TransparentDistortionEnable",
++    "AlphaUsed": "AlphaUsed",
++    "BakeTextureUseSecondaryUV": "BakeTextureUseSecondaryUV",
++    "ForwardPrepassEnabled": "ForwardPrepassEnabled",
++    "ForcedAlphaTestEnableShadow": "ForcedAlphaTestEnableShadow",
++    "TessellationZPrepassDisable": "TessellationZPrepassDisable",
++    "DitheredLodTransitionEnable": "DitheredLodTransitionEnable",
++    "reserved0": "reserved0",
++    "reserved1": "reserved1",
++    "reserved2": "reserved2",
++    "Alpha": "Alpha",
++    "Color": "Color",
++    "Metallic": "Metallic",
++    "Normal": "Normal",
++    "Roughness": "Roughness",
++    "OffsetX": "OffsetX",
++    "OffsetY": "OffsetY",
++    "Rotation": "Rotation",
++    "Tiling": "Tiling",
++    "UseDetail": "UseDetail",
++    "UseSecondaryUV": "UseSecondaryUV",
++    "TexCoordNormal": "TexCoordNormal",
++    "UV1": "UV1",
++    "UV2": "UV2",
++
++    # Remaining stable property labels and descriptions.
++    "Armature": "骨架",
++    "Game": "游戏",
++    "Platform": "平台",
++    "Work Directory": "工作目录",
++    "Mod Name": "Mod 名称",
++    "Internal Mod Name": "内部 Mod 名称",
++    "Mod File Tracking": "Mod 文件跟踪",
++    "Mesh Collection": "网格集合",
++    "Skip Prompt": "跳过提示",
++    "Texture Packer": "纹理打包器",
++    "RE Mesh Export Error": "RE Mesh 导出错误",
++    "Enter the name of your new mod": "输入新 Mod 的名称",
++    "Interval between checks": "检查间隔",
++    "This is the mod name used in file paths.\nHyphens, underscores and alphanumeric characters only": "文件路径中使用的 Mod 名称。\n只能使用连字符、下划线和字母数字字符",
++    "Merges the imported mesh's armature with the selected armature. Leave this blank if not merging with an armature": "将导入网格的骨架与选中骨架合并。不与骨架合并时请留空",
++    "If multiple mesh files are selected, merge the armatures of all newly imported mesh files into one": "如果选择了多个网格文件，将所有新导入网格的骨架合并为一个",
++    "Manually set the path of the mdf2 file. The MDF is found automatically if this is left blank.\nTip:Hold shift and right click the mdf2 file and click \"Copy as path\", then paste into this field": "手动设置 mdf2 文件路径。留空时会自动查找 MDF。\n提示：按住 Shift 右键点击 mdf2 文件，选择“复制为路径”，再粘贴到此字段",
++    "Imports the MDF materials as objects inside a collection in the outliner.\nYou can make changes to MDF materials by selecting the Material objects in the outliner.\nUnder the Object Properties tab (orange square), there's a panel called \"RE MDF Material Settings\".\nMake any changes to MDF materials there.\nIf you're not modding an RE Engine game, you can uncheck this option since it won't be needed": "将 MDF 材质作为 Outliner 集合中的对象导入。\n在 Outliner 中选择材质对象即可修改 MDF 材质。\n对象属性页签（橙色方块）中有一个名为“RE MDF 材质设置”的面板。\n请在那里修改 MDF 材质。\n如果你不是在制作 RE Engine 游戏 Mod，可以取消此选项，因为你不需要它",
++    "If checked, any meshes using this material will appear invisible in game.\nThis works by making the game unable to find the material hash.\nUsing this option is not recommended. Deleting the materials from the MDF and the objects using them in the mesh files is the correct way to do this.\nOnly use this if there's some reason you can't alter the mesh file.": "勾选后，使用此材质的网格在游戏中会不可见。\n其原理是让游戏无法找到材质哈希。\n不建议使用此选项。正确做法是从 MDF 中删除材质，并从 mesh 文件中删除使用它的对象。\n只有无法修改 mesh 文件时才使用此项。",
++    "Extended bit flag for SF6 (version 31) and newer.\nChanging this will change all of the extended flag values": "SF6（版本 31）及更新版本的扩展位标志。\n修改此值会改变所有扩展标志值",
++    "Unknown value for version 31 and above, likely flags": "版本 31 及以上的未知值，可能为标志",
++    "This value is inaccessible by the user, it is used to determine whether the user changed a value or an update function did so that an infinite loop doesn't happen": "用户无法访问此值；它用于判断值是由用户还是更新函数修改，以避免无限循环",
++    "The Blender material that corresponds to this MDF material. Any changes made to supported MDF properties will reflect on the Blender material.\nIf a linked material is not set, it will be set automatically once an MDF property is changed": "与此 MDF 材质对应的 Blender 材质。对支持的 MDF 属性所做的修改会反映到 Blender 材质。\n如果未设置关联材质，修改 MDF 属性后会自动设置",
++    "The name of the MDF material. The material names must match on both the mesh and mdf file.\nIf the material names and number of materials do not match in the mesh and mdf, you will get a checkerboard texture in game": "MDF 材质名称。mesh 和 mdf 文件中的材质名称必须一致。\n如果 mesh 和 mdf 中的材质名称或材质数量不一致，游戏中会显示棋盘格纹理",
++    "Set the way in which you want materials to be converted to RE Engine": "设置将材质转换为 RE Engine 的方式",
++    "Set up a mod workspace directory for RE Engine games.\nThe purpose of this is to streamline mod development by reducing redundant tasks where possible.\n": "为 RE Engine 游戏设置 Mod 工作区目录。\n用于尽可能减少重复工作，简化 Mod 开发流程。\n",
++    "Move all existing meshes and materials out of the specified mesh and MDF collection once the model is converted.\nMoved objects are placed into the Removed Meshes and Removed MDF Materials collections respectively.\nLeaving this enabled is recommended": "模型转换后，将指定网格集合和 MDF 集合中的现有网格与材质移出。\n对象会分别移到 Removed Meshes 和 Removed MDF Materials 集合。\n建议保持启用",
++    "Launch the game.\nExtract paths must be set in the asset library.\nThis feature is only supported on Windows": "启动游戏。\n必须在资源库中设置解包路径。\n此功能仅支持 Windows",
++    "Deletes installed mod files from the game directory.\nNOTE:Only files that are present in the modOutput folder will be deleted.\nMod File Tracking will be turned off if it's on": "从游戏目录删除已安装的 Mod 文件。\n注意：只会删除 modOutput 文件夹中存在的文件。\n如果已启用 Mod 文件跟踪，将会关闭它",
++    "Copies files from the modOutput directory into the game directory.\nRE Asset Library must be installed.\nThe asset libary for the game must be installed and have the game extract paths set.\nNOTE: In MH Wilds and newer, .tex files are not copied, this is because tex files cannot be loose loaded in RE Engine games from 2025 and newer.\nUse the Create Patch Pak button to create a pak mod": "将 modOutput 目录中的文件复制到游戏目录。\n必须安装 RE Asset Library。\n必须安装对应游戏的资源库并设置游戏解包路径。\n注意：MH Wilds 及更新版本不会复制 .tex 文件，因为 2025 年及更新的 RE Engine 游戏无法以 loose 方式加载 tex 文件。\n使用“创建 Patch Pak”按钮创建 pak Mod",
++    "Open modinfo.ini in the text editor.\nThis sets the name of the mod and description shown in Fluffy Manager.\nBe sure to also replace showcase.jpg in the modOutput folder with an image for your mod": "在文本编辑器中打开 modinfo.ini。\n此文件设置 Fluffy Manager 中显示的 Mod 名称和描述。\n请同时将 modOutput 文件夹中的 showcase.jpg 替换为 Mod 图片",
++    "Open the folder set as the mod workspace": "打开设置为 Mod 工作区的文件夹",
++    "Choose which game you're creating the mod for. This is used to determine which asset library to extract files from": "选择要制作 Mod 的游戏，用于决定从哪个资源库提取文件",
++    "Set the way in which you want materials to be converted to RE Engine": "设置将材质转换为 RE Engine 的方式",
++    "Skip baking ambient occlusion. This will decrease baking times significantly.\nThis option is the same as unchecking Bake Ambient Occlusion, this option is intended for saving time by not having to uncheck it on all materials": "跳过环境光遮蔽烘焙，可显著缩短烘焙时间。\n此选项等同于取消勾选“烘焙环境光遮蔽”，用于避免逐个材质取消勾选以节省时间",
++    "The name that will be used by the RE Engine material.": "RE Engine 材质将使用的名称。",
++    "Convert a model into RE Engine format. Bakes textures, renames meshes and assigns materials.\nNOTE: This does not handle rigging the model to the RE Engine skeleton.\nYou have to rig the model to the skeleton yourself.\nThis feature works best on materials set up using a Principled BSDF shader.": "将模型转换为 RE Engine 格式。烘焙纹理、重命名网格并分配材质。\n注意：此功能不会将模型绑定到 RE Engine 骨架。\n你需要自行完成骨骼绑定。\n使用 Principled BSDF 着色器设置的材质最适合此功能。",
++    "Do not change this unless you know what you're doing": "除非你清楚其作用，否则不要修改",
++    "Edge splits all edges marked as sharp to preserve them on the exported mesh.\nNOTE: This will modify the exported mesh": "拆分所有标记为锐边的边，以便在导出网格中保留它们。\n注意：这会修改导出的网格",
++    "If enabled, completely clear the addon's folder before installing new update, creating a fresh install": "启用后，在安装新更新前完全清空插件文件夹，以进行全新安装",
++    "If left unchecked, the exporter will get the material names to be used from the end of each object name. For example, if a mesh is named LOD_0_Group_0_Sub_0__Shirts_Mat, the material name is Shirts_Mat. If this option is enabled, the material name will instead be taken from the first material assigned to the object": "未勾选时，导出器会从每个对象名称的末尾获取材质名称。例如网格名为 LOD_0_Group_0_Sub_0__Shirts_Mat 时，材质名为 Shirts_Mat。启用后则使用分配给对象的第一个材质名称",
++    "Merge All New Armatures": "合并所有新骨架",
++    "Opens the preset folder in File Explorer": "在文件资源管理器中打开预设文件夹",
++    "Popup to check and display current updates available": "检查并显示当前可用更新的弹窗",
++    "Tracks changes made to files inside the modOutput directory and copies them to the game directory automatically. This is useful for editing files while the game is running.\nRE Asset Library must be installed.\nThe asset libary for the game must be installed and have the game extract paths set.\nNOTE: In MH Wilds and newer, .tex files are not copied, this is because tex files cannot be loose loaded in RE Engine games from 2025 and newer.\nUse the Create Patch Pak button to create a pak mod": "跟踪 modOutput 目录中的文件变更，并自动将其复制到游戏目录。适合在游戏运行时编辑文件。\n必须安装 RE Asset Library。\n必须安装对应游戏的资源库并设置游戏解包路径。\n注意：MH Wilds 及更新版本不会复制 .tex 文件，因为 2025 年及更新的 RE Engine 游戏无法以 loose 方式加载 tex 文件。\n使用“创建 Patch Pak”按钮创建 pak Mod",
++    "TransparentPriorityBias": "TransparentPriorityBias",
++    "Version 31 Unknown": "版本 31 未知值",
++    "Version 31 Unknown 2": "版本 31 未知值 2",
++    "Version 31 Unknown 3": "版本 31 未知值 3",
++
++    # Blender node/socket names and game/version identifiers are intentionally
++    # identity mappings: they are format or runtime identifiers, not prose.
++    "Basis": "Basis",
++    "BentNormalNodeGroup": "BentNormalNodeGroup",
++    "BlueChannel": "BlueChannel",
++    "COLOR": "COLOR",
++    "ColorLayer_A": "ColorLayer_A",
++    "ColorLayer_B": "ColorLayer_B",
++    "ColorLayer_G": "ColorLayer_G",
++    "ColorLayer_R": "ColorLayer_R",
++    "ColorNodeGroup": "ColorNodeGroup",
++    "ColorParam_A": "ColorParam_A",
++    "ColorParam_B": "ColorParam_B",
++    "ColorParam_G": "ColorParam_G",
++    "ColorParam_R": "ColorParam_R",
++    "DetailMaskMap": "DetailMaskMap",
++    "DetailMaskMapAlpha": "DetailMaskMapAlpha",
++    "DualUVMappingNodeGroupV2": "DualUVMappingNodeGroupV2",
++    "ImagePassThroughNodeGroup": "ImagePassThroughNodeGroup",
++    "MetallicLayer_A": "MetallicLayer_A",
++    "MetallicLayer_B": "MetallicLayer_B",
++    "MetallicLayer_G": "MetallicLayer_G",
++    "MetallicLayer_R": "MetallicLayer_R",
++    "MetallicParam_A": "MetallicParam_A",
++    "MetallicParam_B": "MetallicParam_B",
++    "MetallicParam_G": "MetallicParam_G",
++    "MetallicParam_R": "MetallicParam_R",
++    "MHWildsDetailMapNodeGroup": "MHWildsDetailMapNodeGroup",
++    "MHWildsSkinMappingV2": "MHWildsSkinMappingV2",
++    "NormalLayer_A": "NormalLayer_A",
++    "NormalLayer_B": "NormalLayer_B",
++    "NormalLayer_G": "NormalLayer_G",
++    "NormalLayer_R": "NormalLayer_R",
++    "NormalParam_A": "NormalParam_A",
++    "NormalParam_B": "NormalParam_B",
++    "NormalParam_G": "NormalParam_G",
++    "NormalParam_R": "NormalParam_R",
++    "RoughnessLayer_A": "RoughnessLayer_A",
++    "RoughnessLayer_B": "RoughnessLayer_B",
++    "RoughnessLayer_G": "RoughnessLayer_G",
++    "RoughnessLayer_R": "RoughnessLayer_R",
++    "RoughnessParam_A": "RoughnessParam_A",
++    "RoughnessParam_B": "RoughnessParam_B",
++    "RoughnessParam_G": "RoughnessParam_G",
++    "RoughnessParam_R": "RoughnessParam_R",
++    "Vec4NodeGroup": "Vec4NodeGroup",
++    "fileDir": "fileDir",
++    "gameName": "gameName",
++    "outDir": "outDir",
++    "texVersion": "texVersion",
++    "Vector": "Vector",
++    "W": "W",
++    "X": "X",
++    "Y": "Y",
++    "Z": "Z",
++
++    # Game names and file-version labels are retained verbatim.
++    "DMC5 (.3)": "DMC5 (.3)",
++    "DD2 (.6)": "DD2 (.6)",
++    "RERT (.4)": "RERT (.4)",
++    "RE4R (.5)": "RE4R (.5)",
++    "MH Wilds / MHS3 (.7)": "MH Wilds / MHS3 (.7)",
++    "Resident Evil 9 / Pragmata (.8)": "Resident Evil 9 / Pragmata (.8)",
++    "Devil May Cry 5": "鬼泣 5",
++    "Devil May Cry 5 / Resident Evil 2": "Devil May Cry 5 / Resident Evil 2",
++    "Resident Evil 2": "生化危机 2",
++    "Resident Evil 2 / 3 / 7 Ray Tracing": "Resident Evil 2 / 3 / 7 Ray Tracing",
++    "Resident Evil 2 / 3 Ray Tracing": "Resident Evil 2 / 3 Ray Tracing",
++    "Resident Evil 2 Ray Tracing": "生化危机 2 光线追踪版",
++    "Resident Evil 2/3 Ray Tracing Version": "Resident Evil 2/3 Ray Tracing Version",
++    "Resident Evil 3": "生化危机 3",
++    "Resident Evil 3 Ray Tracing": "生化危机 3 光线追踪版",
++    "Resident Evil 4": "生化危机 4",
++    "Resident Evil 7 Ray Tracing": "生化危机 7 光线追踪版",
++    "Resident Evil 7 Ray Tracing Version": "Resident Evil 7 Ray Tracing Version",
++    "Resident Evil 8": "生化危机 8",
++    "Resident Evil 9": "生化危机 9",
++    "Resident Evil 9 / Dragon's Dogma 2 / Monster Hunter Wilds": "Resident Evil 9 / Dragon's Dogma 2 / Monster Hunter Wilds",
++    "Resident Evil 9 / Pragmata / Onimusha: WotS": "Resident Evil 9 / Pragmata / Onimusha: WotS",
++    "Resident Evil 9, Pragmata and Onimusha: WotS": "Resident Evil 9, Pragmata and Onimusha: WotS",
++    "Dragon's Dogma 2": "龙之信条 2",
++    "Dragon's Dogma 2 / Kunitsu-Gami / Dead Rising": "Dragon's Dogma 2 / Kunitsu-Gami / Dead Rising",
++    "Dragon's Dogma 2, Kunitsu-Gami, Dead Rising": "Dragon's Dogma 2, Kunitsu-Gami, Dead Rising",
++    "Dead Rising": "丧尸围城",
++    "Kunitsu-Gami": "祇：女神之道",
++    "Monster Hunter Rise": "怪物猎人：崛起",
++    "Monster Hunter Stories 3": "怪物猎人物语 3",
++    "Monster Hunter Wilds": "怪物猎人：荒野",
++    "Onimusha 2": "鬼武者 2",
++    "Onimusha: Way of the Sword": "鬼武者：剑之道",
++    "Pragmata": "Pragmata",
++    "Street Fighter 6": "街头霸王 6",
++
++    # Updater preferences are part of this add-on's Preferences panel.
++    "Addon is up to date": "插件已是最新版本",
++    "Addon restored": "插件已还原",
++    "Addon successfully installed": "插件安装成功",
++    "(Re)install addon version": "（重新）安装插件版本",
++    "(failed to retrieve direct download)": "（无法获取直接下载链接）",
++    "Check for update now?": "现在检查更新吗？",
++    "Checking...": "正在检查……",
++    "Choose 'Update Now' & press OK to install, ": "选择“立即更新”并按“确定”安装，",
++    "Click for manual download.": "点击手动下载。",
++    "Clean install": "全新安装",
++    "Decide to install, ignore, or defer new addon update": "决定安装、忽略或延后新的插件更新",
++    "Defer": "稍后处理",
++    "Defer choice till next blender session": "将选择延后到下次 Blender 会话",
++    "Direct download": "直接下载",
++    "End background check": "结束后台检查",
++    "Error Occurred": "发生错误",
++    "Error getting updater preferences": "获取更新器偏好设置时出错",
++    "Error initializing updater code:": "初始化更新器代码时出错：",
++    "Error occurred, did not install": "发生错误，未完成安装",
++    "Get it now": "立即获取",
++    "Ignore": "忽略",
++    "Ignore this update to prevent future popups": "忽略此更新以阻止今后弹出提示",
++    "Ignore update": "忽略更新",
++    "Ignore update to prevent future popups": "忽略更新以阻止今后弹出提示",
++    "Install manually": "手动安装",
++    "Install the addon manually": "手动安装插件",
++    "Install update manually": "手动安装更新",
++    "Install update now": "立即安装更新",
++    "Installation Report": "安装报告",
++    "Last check: Never": "上次检查：从未检查",
++    "Last update check: Never": "上次检查更新：从未检查",
++    "No updates available": "没有可用更新",
++    "Open website": "打开网站",
++    "or click outside window to defer": "或点击窗口外部稍后处理",
++    "Press okay to dismiss dialog": "按“确定”关闭此对话框",
++    "Press the download button below and install": "按下方的下载按钮并安装",
++    "Proceed to manually install update": "继续手动安装更新",
++    "Process update": "处理更新",
++    "Restore addon from backup": "从备份还原插件",
++    "Restore backup": "还原备份",
++    "Restart blender": "重启 Blender",
++    "Restart blender to complete update": "重启 Blender 以完成更新",
++    "Restart blender to reload": "重启 Blender 以重新加载",
++    "See source website to download the update": "请访问源网站下载更新",
++    "Select install version": "选择安装版本",
++    "Select the version to install": "选择要安装的版本",
++    "Stop checking for update in the background": "停止在后台检查更新",
++    "Target version to install": "要安装的目标版本",
++    "Update": "更新",
++    "Update Now": "立即更新",
++    "Update installation response": "更新安装响应",
++    "Update ready!": "更新已就绪！",
++    "Updater Settings": "更新器设置",
++    "Updater error": "更新器错误",
++    "Updater module error": "更新器模块错误",
++    "There was an issue trying to auto-install": "自动安装时出现问题",
++    "Consider restarting blender to fully reload.": "建议重启 Blender 以完全重新加载。",
++    "to complete update": "以完成更新",
++    "the zip file like a normal addon.": "像普通插件一样安装 ZIP 文件。",
++}
++
++
++_OPERATOR_MESSAGES = {
++    "Deleted loose geometry on all objects": "已删除所有对象中的松散几何体",
++    "Deleted loose geometry on selected objects": "已删除选中对象中的松散几何体",
++    "Renamed all objects to RE Mesh format": "已将所有对象重命名为 RE Mesh 格式",
++    "Renamed selected objects to RE Mesh format": "已将选中对象重命名为 RE Mesh 格式",
++    "Removed empty vertex groups on all objects.": "已移除所有对象中的空顶点组。",
++    "Removed empty vertex groups on selected objects.": "已移除选中对象中的空顶点组。",
++    "Limited total weights to {weight_limit} and normalized on all objects": "已将所有对象的总权重限制为 {weight_limit} 并完成归一化",
++    "Limited total weights to {weight_limit} and normalized on selected objects": "已将选中对象的总权重限制为 {weight_limit} 并完成归一化",
++    "Created new RE mesh collection.": "已创建新的 RE Mesh 集合。",
++    "Invalid mesh collection name.": "网格集合名称无效。",
++    "Batch export finished successfully.": "批量导出成功完成。",
++    "Solved repeated UVs on all objects.": "已解决所有对象中的重复 UV。",
++    "Solved repeated UVs on selected objects.": "已解决选中对象中的重复 UV。",
++    "Created new RE MDF collection.": "已创建新的 RE MDF 集合。",
++    "Invalid MDF collection name.": "MDF 集合名称无效。",
++    "Reindexed materials.": "已重新索引材质。",
++    "Added preset material.": "已添加预设材质。",
++    "Applied MDF to mesh collection.": "已将 MDF 应用到网格集合。",
++    "Invalid mesh or MDF collection.": "网格或 MDF 集合无效。",
++    "Saved preset.": "已保存预设。",
++    "Replaced {count} instances of \"{value}\"": "已替换 {count} 处“{value}”",
++    "Replaced {count} texture bindings.": "已替换 {count} 个纹理绑定。",
++    "Converted {count} textures.": "已转换 {count} 个纹理。",
++    "Copied {copy_count}/{total_count} textures to mod directory": "已将 {copy_count}/{total_count} 个纹理复制到 Mod 目录",
++    "Copied {copy_count} / {file_count} files.": "已复制 {copy_count} / {file_count} 个文件。",
++    "Copied {copy_count} / {file_count} files. Pak file was not copied, make sure the game isn't running.": "已复制 {copy_count} / {file_count} 个文件。Pak 文件未复制，请确认游戏未在运行。",
++    "Deleted {delete_count} / {file_count} files.": "已删除 {delete_count} / {file_count} 个文件。",
++    "Deleted {delete_count} / {file_count} files. Pak file was not deleted, make sure the game isn't running.": "已删除 {delete_count} / {file_count} 个文件。Pak 文件未删除，请确认游戏未在运行。",
++    "Texture directory does not exist": "纹理目录不存在",
++    "Created new RE SFur collection.": "已创建新的 RE SFur 集合。",
++    "Invalid SFur collection name.": "SFur 集合名称无效。",
++    "Reindexed fur entries.": "已重新索引 Fur 条目。",
++    "Added shell fur entry.": "已添加 Shell Fur 条目。",
++    "Applied SFur to mesh collection.": "已将 SFur 应用到网格集合。",
++    "Invalid mesh or SFur collection.": "网格或 SFur 集合无效。",
++    "Linked {count} armatures to the selected armature.": "已将 {count} 个骨架关联到选中的骨架。",
++    "Cleared bone linkages on selected armatures.": "已清除选中骨架上的骨骼关联。",
++    "Imported RE Mesh file.": "已导入 RE Mesh 文件。",
++    "Imported {count} RE Mesh files.": "已导入 {count} 个 RE Mesh 文件。",
++    "Failed to import RE Mesh. Check the console for errors.": "导入 RE Mesh 失败。请检查控制台中的错误。",
++    "Mesh file path is missing number extension. Cannot export.": "Mesh 文件路径缺少数字扩展名，无法导出。",
++    "Exported RE Mesh successfully.": "已成功导出 RE Mesh。",
++    "RE Mesh export failed. See Window > Toggle System Console for info on how to fix it.": "RE Mesh 导出失败。请查看“窗口 > 切换系统控制台”获取修复信息。",
++    "Imported RE MDF file.": "已导入 RE MDF 文件。",
++    "Imported {count} RE MDF files.": "已导入 {count} 个 RE MDF 文件。",
++    "Failed to import RE MDF. Check the console for errors.": "导入 RE MDF 失败。请检查控制台中的错误。",
++    "Exported RE MDF successfully.": "已成功导出 RE MDF。",
++    "Failed to export RE MDF. Check Window > Toggle System Console for details.": "导出 RE MDF 失败。请查看“窗口 > 切换系统控制台”获取详情。",
++    "Failed to import RE FBXSkel.": "导入 RE FBXSkel 失败。",
++    "Exported RE FBXSkel successfully.": "已成功导出 RE FBXSkel。",
++    "Failed to export RE FBXSkel. Check Window > Toggle System Console for details.": "导出 RE FBXSkel 失败。请查看“窗口 > 切换系统控制台”获取详情。",
++    "Imported RE SFur file.": "已导入 RE SFur 文件。",
++    "Imported {count} RE SFur files.": "已导入 {count} 个 RE SFur 文件。",
++    "Failed to import RE SFur. Check the console for errors.": "导入 RE SFur 失败。请检查控制台中的错误。",
++    "Exported RE SFur successfully.": "已成功导出 RE SFur。",
++    "Failed to export RE SFur. Check Window > Toggle System Console for details.": "导出 RE SFur 失败。请查看“窗口 > 切换系统控制台”获取详情。",
++    "Invalid work directory.": "工作目录无效。",
++    "Invalid internal mod name.": "内部 Mod 名称无效。",
++    "Created mod workspace.": "已创建 Mod 工作区。",
++    "No meshes are selected.": "未选择网格。",
++    "Mod workspace is not set up.": "尚未设置 Mod 工作区。",
++    "The selected objects have no materials.": "选中的对象没有材质。",
++    "Converted selected models to RE Engine format.": "已将选中模型转换为 RE Engine 格式。",
++    "Invalid directory.": "目录无效。",
++    "Mod workspace not set or asset library is not set up.": "未设置 Mod 工作区，或尚未设置资源库。",
++    "This feature is only supported on Windows.": "此功能仅支持 Windows。",
++    "There are no material presets saved for {game_name}. This feature cannot be used without presets.": "没有为 {game_name} 保存材质预设。没有预设无法使用此功能。",
++    "Install the asset library for {game_name} and set the game extract paths first.": "请先安装 {game_name} 的资源库并设置游戏解包路径。",
++    "Copied {copy_count} / {file_count} files.": "已复制 {copy_count} / {file_count} 个文件。",
++    "Deleted {delete_count} / {file_count} files.": "已删除 {delete_count} / {file_count} 个文件。",
++}
++
++
++def _build_catalog():
++    catalog = {}
++    for message_table in (_UI_MESSAGES, _EXTRA_UI_MESSAGES):
++        catalog.update({("*", message): translation for message, translation in message_table.items()})
++        catalog.update({("Operator", message): translation for message, translation in message_table.items()})
++    for message, translation in _OPERATOR_MESSAGES.items():
++        catalog[("*", message)] = translation
++        catalog[("Operator", message)] = translation
++    return catalog
++
++
++translations_dict = {
++    "zh_HANS": _build_catalog(),
++    "zh_CN": _build_catalog(),
++}
++
++
++def pgettext_iface(message, msgctxt="*"):
++    """Translate an interface string while preserving the English fallback."""
++
++    return bpy.app.translations.pgettext_iface(message, msgctxt)
++
++
++def pgettext_tip(message, msgctxt="Operator"):
++    """Translate an operator tooltip/report while preserving the English fallback."""
++
++    return bpy.app.translations.pgettext_tip(message, msgctxt)
++
++
++def ifacef(message, **values):
++    """Translate and format a dynamic interface message."""
++
++    return pgettext_iface(message).format(**values)
++
++
++def tipf(message, **values):
++    """Translate and format a dynamic operator message."""
++
++    return pgettext_tip(message).format(**values)
++
++
++def register():
++    """Register this add-on's translations without changing global preferences."""
++
++    global _REGISTERED
++    if _REGISTERED:
++        return
++    try:
++        bpy.app.translations.unregister(_TRANSLATION_MODULE_NAME)
++    except (KeyError, RuntimeError, ValueError):
++        pass
++    bpy.app.translations.register(_TRANSLATION_MODULE_NAME, translations_dict)
++    _REGISTERED = True
++
++
++def unregister():
++    """Unregister this add-on's translation table."""
++
++    global _REGISTERED
++    try:
++        bpy.app.translations.unregister(_TRANSLATION_MODULE_NAME)
++    except (KeyError, RuntimeError, ValueError):
++        pass
++    _REGISTERED = False
++
++
++__all__ = [
++    "translations_dict",
++    "pgettext_iface",
++    "pgettext_tip",
++    "ifacef",
++    "tipf",
++    "register",
++    "unregister",
++]

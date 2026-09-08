@@ -6,6 +6,7 @@
 | `onimusha-pak-validation.md` | Archive format, chunk-offset and extraction verification |
 | `onimusha-quality-validation.md` | LOD, texture fidelity, live asset import and Chain2 acceptance boundaries |
 | `asset-catalog-path-migration.md` | Path-based catalog behavior, safe existing-library migration and isolated validation commands |
+| `localization.md` | Blender 5.2 Simplified Chinese translation workflow and isolated lifecycle validation |
 
 ## Common Patterns
 - Distinguish header/index parsing, extracted bytes, Blender object creation and visual fidelity.
