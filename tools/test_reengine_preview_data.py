@@ -54,6 +54,33 @@ def parsed(*lods: SimpleNamespace) -> SimpleNamespace:
 
 
 class PreviewDataTests(unittest.TestCase):
+    def test_preview_mip_preserves_source_and_selects_512(self):
+        original = SimpleNamespace(header=SimpleNamespace(width=2048, height=1024, depth=1, mipCount=4, imageCount=2),
+                                   imageMipDataList=[['m0', 'm1', 'm2', 'm3'], ['other']])
+        selected = preview._preview_mip(original, 512)
+        self.assertEqual((selected.header.width, selected.header.height), (512, 256))
+        self.assertEqual(selected.imageMipDataList, [['m2']])
+        self.assertEqual(original.header.width, 2048)
+        self.assertEqual(original.header.mipCount, 4)
+
+    def test_tga_origin_and_24bit_alpha(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'origin.tga'
+            header = struct.pack('<BBBHHBHHHHBB', 0, 0, 2, 0, 0, 0, 0, 0, 2, 1, 24, 0x10)
+            path.write_bytes(header + bytes((255, 0, 0, 0, 0, 255)))
+            self.assertEqual(preview._decode_tga(str(path)), (2, 1, bytes((255, 0, 0, 255, 0, 0, 255, 255))))
+            path.write_bytes(header + b'bad')
+            with self.assertRaises(preview.PreviewError): preview._decode_tga(str(path))
+
+    def test_cache_has_byte_limit(self):
+        cache = preview.OrderedDict()
+        preview._cache_put(cache, 'a', 'first', 6, 10)
+        preview._cache_put(cache, 'b', 'second', 6, 10)
+        self.assertIsNone(preview._cache_get(cache, 'a'))
+        self.assertEqual(preview._cache_get(cache, 'b'), 'second')
+        preview._cache_put(cache, 'huge', 'skip', 11, 10)
+        self.assertIsNone(preview._cache_get(cache, 'huge'))
+
     def test_lod_policy_prefers_lod2_then_falls_back_without_going_above_lod2(self) -> None:
         empty = lod()
         chosen_index, _ = preview._choose_lod(
@@ -119,6 +146,7 @@ class PreviewDataTests(unittest.TestCase):
         mdf = SimpleNamespace(materialList=[source_material], fileVersion=51)
         parsed_mesh = SimpleNamespace(materialNameList=["Body"])
         fake_tex_module = SimpleNamespace(
+            __name__="fake_texture_editor",
             getTexVersionFromGameName=lambda game_name: 251111100,
         )
         with tempfile.TemporaryDirectory(prefix="re_preview_material_") as temp_dir:
@@ -149,6 +177,30 @@ class PreviewDataTests(unittest.TestCase):
         self.assertEqual((width, height), (2, 1))
         self.assertEqual(rgba8, bytes((255, 0, 0, 255, 0, 255, 0, 128)))
 
+
+    def test_decode_rgba8_routes_tex_and_dds_to_converter(self) -> None:
+        for extension in (".tex.251111100", ".DDS"):
+            with self.subTest(extension=extension), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                source = root / ("base" + extension)
+                source.write_bytes(b"source")
+                tex_file = mock.Mock()
+                dds_file = mock.Mock()
+                dds_file.write.side_effect = lambda path: Path(path).write_bytes(b"converted")
+                def convert(path, out, verbose):
+                    self.assertEqual(Path(path).read_bytes(), b"source" if extension == ".DDS" else b"converted")
+                    target = Path(out) / "preview.tga"
+                    _write_tga(target)
+                    return str(target)
+                modules = [
+                    SimpleNamespace(RE_TexFile=mock.Mock(return_value=tex_file), TexToDDS=mock.Mock()),
+                    SimpleNamespace(DDSFile=mock.Mock(return_value=dds_file)),
+                    SimpleNamespace(Texconv=lambda: SimpleNamespace(convert_to_tga=convert)),
+                ]
+                with mock.patch.object(preview, "_editor_module", side_effect=modules):
+                    result = preview._decode_rgba8(str(source), object(), root / "cache")
+                self.assertEqual(result, (2, 1, bytes((255, 0, 0, 255, 0, 255, 0, 128))))
+                self.assertEqual(tex_file.read.call_count, 0 if extension == ".DDS" else 1)
 
     def test_load_preview_returns_plain_cpu_schema_without_bpy_data(self) -> None:
         mesh = parsed(lod(triangle_submesh(0)))

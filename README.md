@@ -1,3 +1,14 @@
+<!-- FORK-MAINTENANCE -->
+## 分支作者与维护说明
+
+本分支由 **yequ172672** 维护，负责 Blender 5.2 适配、中文本地化和 OWOTS 支持。保留原作者及贡献者署名与原项目许可证。
+
+- 分叉仓库：[RE-Asset-Library-5.2-CN](https://github.com/yequ172672/RE-Asset-Library-5.2-CN/tree/feat/onimusha-wots)
+- 问题反馈：[分支 Issues](https://github.com/yequ172672/RE-Asset-Library-5.2-CN/issues)
+- 插件内“检查更新”查询本分叉的发行版 / 标签；更新版本菜单另提供 `feat/onimusha-wots` 开发分支。开发分支更新是手动安装分支快照，不代表按提交检测新版本。
+
+<!-- /FORK-MAINTENANCE -->
+
 # RE-Asset-Library-5.2-CN
 
 本分叉提供 Blender 5.2 下的 Onimusha: Way of the Sword 适配与简体中文界面。维护代码位于 [`feat/onimusha-wots`](https://github.com/yequ172672/RE-Asset-Library-5.2-CN/tree/feat/onimusha-wots) 分支；`main` 保留上游版本。

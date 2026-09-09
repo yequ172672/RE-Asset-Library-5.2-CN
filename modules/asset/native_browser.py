@@ -49,7 +49,7 @@ _selected_asset_id = ""
 _pending_import_callback = None
 
 
-def _translate(function_name: str, message: str, **values: Any) -> str:
+def _translate(function_name: str, message: str, /, **values: Any) -> str:
     """Translate UI/report text when Blender's translation module is loaded."""
 
     try:
@@ -282,6 +282,7 @@ def unregister() -> None:
         _pending_import_callback = None
     _stop_server()
     _clear_gpu_preview()
+    _clear_preview_caches()
 
 
 def is_registered() -> bool:
@@ -306,6 +307,8 @@ def refresh_reengine() -> bool:
     bridge = _load_bridge()
     if not is_available() or not _registered:
         return False
+    _clear_gpu_preview()
+    _clear_preview_caches()
     if _server is not None:
         _server.set_catalog_root(_catalog_root_from_preferences())
         _server.refresh_catalogs()
@@ -324,6 +327,12 @@ def is_reengine_available() -> bool:
         return bool(bridge.is_provider_available(PROVIDER_ID))
     except Exception:
         return False
+
+
+def _clear_preview_caches():
+    for name in ('preview_data', 'preview_source'):
+        module = importlib.import_module('.' + name, package=__package__)
+        module.clear_cache()
 
 
 def register_icon(type_name: str, png_path: str) -> bool:
@@ -452,9 +461,9 @@ class REENGINE_OT_preview_asset(Operator):
     def execute(self, context: Any):
         try:
             preferences = _preferences()
-            resource = _resolve(
-                self.asset_id,
-                force_extract=bool(getattr(preferences, "forceExtract", False)),
+            resource = browser_resources.preview_resource(
+                self.asset_id, preferences=preferences,
+                catalog_index=_server.catalog_index if _server is not None else None,
             )
             if resource["metadata"].get("asset_type") != "MESH":
                 raise browser_resources.BrowserResourceError("Only .mesh assets support GPU preview")
@@ -466,7 +475,7 @@ class REENGINE_OT_preview_asset(Operator):
 
 
 class REENGINE_OT_import_asset(Operator):
-    """Route full imports through the established RE Mesh import path/options."""
+    """Route full imports through the corresponding editor operators."""
 
     bl_idname = "re_asset.import_asset"
     bl_label = "Import RE Engine Asset"
@@ -482,17 +491,20 @@ class REENGINE_OT_import_asset(Operator):
                 self.asset_id,
                 force_extract=bool(getattr(preferences, "forceExtract", False)),
             )
-            if resource["metadata"].get("asset_type") != "MESH":
-                raise browser_resources.BrowserResourceError("Only .mesh assets support full import")
+            importer_name = {
+                "MESH": "importREMeshAsset",
+                "CHAIN2": "importREChain2Asset",
+                "MDF2": "importREMDFAsset",
+            }.get(resource["metadata"].get("asset_type"))
+            if importer_name is None:
+                raise browser_resources.BrowserResourceError("Unsupported asset type for full import")
             if preferences is None:
                 raise browser_resources.BrowserResourceError("RE Asset Library preferences are unavailable")
 
-            # Keep the exact proxy shape expected by importREMeshAsset.  That
-            # helper in turn sets the Mesh Editor's drag-drop options and calls
-            # re_mesh.importfile(directory=..., files=[...]).
+            # Reuse editor-specific options and operator status handling.
             proxy = browser_resources._AssetProxy(resource["metadata"])
             import_module = importlib.import_module(".blender_re_asset", package=__package__)
-            importer = getattr(import_module, "importREMeshAsset")
+            importer = getattr(import_module, importer_name)
             result = _import_after_preview(context, importer, proxy, resource["mesh_path"], preferences)
             if result is False:
                 raise browser_resources.BrowserResourceError(
@@ -513,7 +525,7 @@ def _import_after_preview(context, importer, proxy, mesh_path, preferences):
     """
     global _pending_import_callback
     if _pending_import_callback is not None:
-        raise RuntimeError("A mesh import is already waiting for preview decoding")
+        raise RuntimeError("An asset import is already waiting for preview decoding")
     preview = importlib.import_module(".gpu_preview", package=__package__)
     preview.clear_preview()
     if not preview.is_loading():
@@ -636,6 +648,7 @@ class FILEBROWSER_PT_REEngineBrowser(Panel):
         layout.label(text=_translate("tr_iface", "RE Engine Asset Browser"))
         if preferences is not None:
             layout.prop(preferences, "assetLibraryPath")
+            layout.prop(preferences, "showMeshImportOptions")
         root = _catalog_root_from_preferences()
         if not root:
             layout.label(text=_translate("tr_iface", "Asset library path is not configured"), icon="ERROR")
@@ -661,7 +674,7 @@ class FILEBROWSER_PT_REEngineBrowser(Panel):
         if _pending_import_callback is not None:
             layout.label(text=_translate("tr_iface", "Waiting for preview decoding before import"))
         if preview_status.get("state") not in (None, "idle"):
-            message = str(preview_status.get("message") or preview_status.get("state"))
+            message = _translate('tr_iface', str(preview_status.get("message") or preview_status.get("state")))
             layout.label(
                 text=_translate("tr_iface", "Preview: {message}", message=message),
                 icon="VIEWZOOM",

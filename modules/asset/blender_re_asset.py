@@ -113,6 +113,26 @@ def importREMeshAsset(obj,meshPath,assetPreferences):
 	return True
 
 
+def importREMDFAsset(obj,mdfPath,assetPreferences):
+	"""Import editable MDF data through RE Mesh Editor's native MDF operator."""
+	if mdfPath is None:
+		_reportImportFailure(obj.get("assetPath",obj.name)+" - File not found at any chunk paths")
+		return False
+	if not hasattr(bpy.types, "OBJECT_PT_mdf_tools_panel"):
+		_reportImportFailure("RE Mesh Editor is not installed. MDF files can't be imported.")
+		return False
+	directory, filename = os.path.split(mdfPath)
+	try:
+		result = bpy.ops.re_mdf.importfile(directory=directory, files=[{"name":filename}])
+	except Exception as err:
+		_reportImportFailure(f"MDF import failed: {err}")
+		return False
+	if not _operatorAccepted(result):
+		_reportImportFailure(f"MDF import was cancelled for {filename}")
+		return False
+	return True
+
+
 def importREChainAsset(obj,chainPath,assetPreferences):
 	print(f"RE Asset Library - Attemping import of {obj.name}")
 	if chainPath != None:
@@ -122,9 +142,9 @@ def importREChainAsset(obj,chainPath,assetPreferences):
 			meshCollectionName = split[1].split(".chain")[0]+".mesh"
 			#print(meshCollectionName)
 			if meshCollectionName in bpy.data.collections:
-				for obj in bpy.data.collections[meshCollectionName].all_objects:
-					if obj.type == "ARMATURE":
-						armatureDataName = obj.data.name
+				for meshObj in bpy.data.collections[meshCollectionName].all_objects:
+					if meshObj.type == "ARMATURE":
+						armatureDataName = meshObj.data.name
 						break
 			try:
 				result = bpy.ops.re_chain.importfile("INVOKE_DEFAULT",filepath = chainPath,directory=split[0], files=[{"name":split[1]}],targetArmature = armatureDataName,importUnknowns = obj.get("~GAME") == "OWOTS")
@@ -151,9 +171,9 @@ def importREChain2Asset(obj,chainPath,assetPreferences):
 			meshCollectionName = split[1].split(".chain")[0]+".mesh"
 			#print(meshCollectionName)
 			if meshCollectionName in bpy.data.collections:
-				for obj in bpy.data.collections[meshCollectionName].all_objects:
-					if obj.type == "ARMATURE":
-						armatureDataName = obj.data.name
+				for meshObj in bpy.data.collections[meshCollectionName].all_objects:
+					if meshObj.type == "ARMATURE":
+						armatureDataName = meshObj.data.name
 						break
 			try:
 				result = bpy.ops.re_chain2.importfile("INVOKE_DEFAULT",filepath = chainPath,directory=split[0], files=[{"name":split[1]}],targetArmature = armatureDataName,importUnknowns = obj.get("~GAME") == "OWOTS")

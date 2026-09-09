@@ -1,12 +1,14 @@
 diff --git a/__init__.py b/__init__.py
-index b713bed..6138ff2 100644
+index b713bed..203a613 100644
 --- a/__init__.py
 +++ b/__init__.py
-@@ -2,17 +2,18 @@
+@@ -1,18 +1,19 @@
+ #Author: NSA Cloud
  bl_info = {
  	"name": "RE Mesh Editor",
- 	"author": "NSA Cloud",
+-	"author": "NSA Cloud",
 -	"version": (0, 66),
++	"author": "NSA Cloud; fork maintainer: yequ172672",
 +	"version": (0, 66, 2),
  	"blender": (4, 3, 2),
  	"location": "File > Import-Export",
@@ -207,7 +209,7 @@ index b713bed..6138ff2 100644
  			
  			if bpy.context.scene.re_mdf_toolpanel.modDirectory == "":
  				setModDirectoryFromFilePath(self.filepath)
-@@ -1530,7 +1535,7 @@ class ExportRESFur(bpy.types.Operator, ExportHelper):
+@@ -1530,12 +1535,36 @@ class ExportRESFur(bpy.types.Operator, ExportHelper):
  			bpy.data.collections[self.targetCollection]["BatchExport_path"] = self.filepath
  			return {"FINISHED"}
  		else:
@@ -216,7 +218,36 @@ index b713bed..6138ff2 100644
  			return {"CANCELLED"}
  
  
-@@ -1794,6 +1799,7 @@ def re_mesh_editor_export(self, context):
++class VIEW3D_PT_REMeshForkMaintenance(bpy.types.Panel):
++    bl_label = "RE Mesh: Fork Maintenance"
++    bl_idname = "VIEW3D_PT_re_mesh_fork_maintenance"
++    bl_space_type = "VIEW_3D"
++    bl_region_type = "UI"
++    bl_category = "RE Mesh"
++    bl_options = {'DEFAULT_CLOSED'}
++    bl_order = 100
++
++    @classmethod
++    def poll(cls, context):
++        return context is not None and context.scene is not None and "HIDE_RE_MDF_EDITOR_TAB" not in context.scene
++
++    def draw(self, context):
++        layout = self.layout
++        layout.label(text="Fork maintainer: yequ172672", icon='USER')
++        layout.label(text="Blender 5.2 adaptation")
++        layout.label(text="Chinese localization / OWOTS support")
++        layout.operator("wm.url_open", text="Author Bilibili Homepage", icon='URL').url = "https://space.bilibili.com/93825767"
++        layout.operator("wm.url_open", text="Fork GitHub Repository", icon='URL').url = "https://github.com/yequ172672/RE-Mesh-Editor-5.2-CN/tree/feat/onimusha-wots"
++        layout.operator("wm.url_open", text="Report a Fork Issue", icon='URL').url = "https://github.com/yequ172672/RE-Mesh-Editor-5.2-CN/issues"
++
++
+ # Registration
+ classes = [
++	VIEW3D_PT_REMeshForkMaintenance,
+ 	#preferences
+ 	ChunkPathPropertyGroup,
+ 	AddItemOperator,
+@@ -1794,6 +1823,7 @@ def re_mesh_editor_export(self, context):
  
  def register():
  	addon_updater_ops.register(bl_info)
@@ -224,7 +255,7 @@ index b713bed..6138ff2 100644
  	for classEntry in classes:
  		bpy.utils.register_class(classEntry)
  		
-@@ -1833,6 +1839,7 @@ def register():
+@@ -1833,6 +1863,7 @@ def register():
  	
  def unregister():
  	del bpy.types.WindowManager.enableModFileTracking
@@ -232,17 +263,32 @@ index b713bed..6138ff2 100644
  	addon_updater_ops.unregister()
  	for classEntry in classes:
  		bpy.utils.unregister_class(classEntry)
-@@ -1860,4 +1867,3 @@ def unregister():
+@@ -1860,4 +1891,3 @@ def unregister():
  		bpy.utils.unregister_class(SFUR_FH_drag_import)
  if __name__ == '__main__':
  	register()
 -	
 \ No newline at end of file
 diff --git a/addon_updater_ops.py b/addon_updater_ops.py
-index 423423d..207cb8c 100644
+index 423423d..bccd2de 100644
 --- a/addon_updater_ops.py
 +++ b/addon_updater_ops.py
-@@ -1353,16 +1353,16 @@ def register(bl_info):
+@@ -947,6 +947,14 @@ def update_settings_ui(self, context, element=None):
+         addon_updater_ops.update_settings_ui(context)
+     """
+ 
++    info = (element if element is not None else self.layout).box()
++    info.label(text="Fork maintainer: yequ172672", icon='USER')
++    info.label(text="Maintained for Blender 5.2, Chinese localization and OWOTS support.")
++    info.label(text="Updates: fork releases/tags; development branch: feat/onimusha-wots")
++    row = info.row(align=True)
++    row.operator("wm.url_open", text="Fork GitHub Repository", icon='URL').url = "https://github.com/yequ172672/RE-Mesh-Editor-5.2-CN/tree/feat/onimusha-wots"
++    row.operator("wm.url_open", text="Report a Fork Issue", icon='URL').url = "https://github.com/yequ172672/RE-Mesh-Editor-5.2-CN/issues"
++
+     # Element is a UI element, such as layout, a row, column, or box.
+     if element is None:
+         element = self.layout
+@@ -1353,16 +1361,16 @@ def register(bl_info):
      updater.private_token = None  # "tokenstring"
  
      # Choose your own username, must match website (not needed for GitLab).
@@ -262,6 +308,24 @@ index 423423d..207cb8c 100644
  
      # Addon subfolder path.
      # "sample/path/to/addon"
+@@ -1443,7 +1451,7 @@ def register(bl_info):
+     # but the user has the option from user preferences to directly
+     # update to the master branch or any other branches specified using
+     # the "install {branch}/older version" operator.
+-    updater.include_branches = False
++    updater.include_branches = True
+ 
+     # (GitHub only) This options allows using "releases" instead of "tags",
+     # which enables pulling down release logs/notes, as well as installs update
+@@ -1460,7 +1468,7 @@ def register(bl_info):
+     # Note: updater.include_branch_list defaults to ['master'] branch if set to
+     # none. Example targeting another multiple branches allowed to pull from:
+     # updater.include_branch_list = ['master', 'dev']
+-    updater.include_branch_list = None  # None is the equivalent = ['master']
++    updater.include_branch_list = ['feat/onimusha-wots']
+ 
+     # Only allow manual install, thus prompting the user to open
+     # the addon's web page to download, specifically: updater.website
 diff --git a/modules/fbxskel/re_fbxskel_operators.py b/modules/fbxskel/re_fbxskel_operators.py
 index 568f7ee..0e6405b 100644
 --- a/modules/fbxskel/re_fbxskel_operators.py
@@ -1362,10 +1426,10 @@ index 643a78e..2966460 100644
 +		return {'FINISHED'}
 diff --git a/translations.py b/translations.py
 new file mode 100644
-index 0000000..163beb5
+index 0000000..36d8948
 --- /dev/null
 +++ b/translations.py
-@@ -0,0 +1,937 @@
+@@ -0,0 +1,947 @@
 +"""Chinese UI translations for the RE Mesh Editor Blender add-on.
 +
 +The source strings remain English message ids. Blender resolves these entries
@@ -1386,6 +1450,16 @@ index 0000000..163beb5
 +# Normal UI strings use Blender's default "*" context. Operator reports are
 +# explicitly looked up in the "Operator" context below.
 +_UI_MESSAGES = {
++    "Author Bilibili Homepage": "作者 B 站主页",
++    "RE Mesh: Fork Maintenance": "RE Mesh：分支维护",
++    "Blender 5.2 adaptation": "Blender 5.2 适配",
++    "Chinese localization / OWOTS support": "中文本地化 / OWOTS 支持",
++    'Fork maintainer: yequ172672': '分支作者 / 维护者：yequ172672',
++    'Maintained for Blender 5.2, Chinese localization and OWOTS support.': '维护内容：Blender 5.2 适配、中文本地化及 OWOTS 支持。',
++    'Updates: fork releases/tags; development branch: feat/onimusha-wots': '更新来源：分叉仓库发行版 / 标签；开发分支：feat/onimusha-wots',
++    'Fork GitHub Repository': '分叉 GitHub 仓库',
++    'Report a Fork Issue': '反馈分支问题',
++
 +    "Convert to RE Engine": "转换为 RE Engine 格式",
 +    "RE Model Conversion": "RE 模型转换",
 +    "Model converted to RE Engine format.\nExisting objects in collection were moved into the \"Removed Meshes\" collection.": "模型已转换为 RE Engine 格式。\n集合中的原有对象已移至“Removed Meshes”集合。",

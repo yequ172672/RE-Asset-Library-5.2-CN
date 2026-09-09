@@ -947,6 +947,14 @@ def update_settings_ui(self, context, element=None):
         addon_updater_ops.update_settings_ui(context)
     """
 
+    info = (element if element is not None else self.layout).box()
+    info.label(text="Fork maintainer: yequ172672", icon='USER')
+    info.label(text="Maintained for Blender 5.2, Chinese localization and OWOTS support.")
+    info.label(text="Updates: fork releases/tags; development branch: feat/onimusha-wots")
+    row = info.row(align=True)
+    row.operator("wm.url_open", text="Fork GitHub Repository", icon='URL').url = "https://github.com/yequ172672/RE-Asset-Library-5.2-CN/tree/feat/onimusha-wots"
+    row.operator("wm.url_open", text="Report a Fork Issue", icon='URL').url = "https://github.com/yequ172672/RE-Asset-Library-5.2-CN/issues"
+
     # Element is a UI element, such as layout, a row, column, or box.
     if element is None:
         element = self.layout
@@ -1443,7 +1451,7 @@ def register(bl_info):
     # but the user has the option from user preferences to directly
     # update to the master branch or any other branches specified using
     # the "install {branch}/older version" operator.
-    updater.include_branches = False
+    updater.include_branches = True
 
     # (GitHub only) This options allows using "releases" instead of "tags",
     # which enables pulling down release logs/notes, as well as installs update
@@ -1460,7 +1468,7 @@ def register(bl_info):
     # Note: updater.include_branch_list defaults to ['master'] branch if set to
     # none. Example targeting another multiple branches allowed to pull from:
     # updater.include_branch_list = ['master', 'dev']
-    updater.include_branch_list = None  # None is the equivalent = ['master']
+    updater.include_branch_list = ['feat/onimusha-wots']
 
     # Only allow manual install, thus prompting the user to open
     # the addon's web page to download, specifically: updater.website

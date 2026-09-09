@@ -32,7 +32,7 @@
 - Blender 5.2 is the target for the Onimusha: Way of the Sword adaptation.
 - RE Mesh Editor imports meshes and materials; RE Chain Editor imports physics chains. Their game enums and format support must match the asset library.
 - The optional `reengine` browser requires custom `_remote_asset_browser` API v1; GPU previews additionally require `gpu.texture.from_bytes()`. The ordinary Asset Browser remains available in official Blender.
-- Python dependencies used by the add-on include `zstandard` and `requests`; Blender supplies `bpy` and `mathutils`.
+- Python dependencies used by the add-on include `zstandard` and `requests`; Blender supplies `bpy`, `mathutils`, and NumPy for bulk preview pixels/GPU arrays.
 - Local reference repositories are siblings, not bundled dependencies: `REE.PAK.Tool` and `REE-Content-Editor` (including `RE-Engine-Lib`).
 
 ## Common Patterns
@@ -49,3 +49,5 @@
 - Verify real samples in Blender 5.2, including a skinned mesh, material/texture dependencies and Chain2 when claiming their support. Registration or a nearest-version fallback alone is insufficient.
 - Use isolated Blender preferences for automated checks. Coordinate access to the live Blender MCP session through the primary agent.
 - Update the relevant AGENTS.md files for structural changes, preserving content enclosed by `<!-- MANUAL -->` markers.
+
+- Preserve upstream authorship and label yequ172672 as fork maintainer. Preferences and README link to `https://github.com/yequ172672/RE-Asset-Library-5.2-CN`; updater releases/tags use this fork and the explicit `feat/onimusha-wots` branch option. Do not fall back to upstream or the updater default master branch.

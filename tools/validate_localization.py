@@ -63,6 +63,7 @@ def main():
             view.language = "zh_HANS"
             report["locale"] = bpy.app.translations.locale
             asset_tr, mesh_tr, chain_tr = [importlib.import_module(name + ".translations") for name in names]
+            assert asset_tr.tr_iface("Preview: {message}", message="READY") == "预览：READY"
             formatted = [
                 asset_tr.tr_report("Installed {gameName} library.", gameName="OWOTS"),
                 mesh_tr.ifacef("File Count: {count}", count=2),

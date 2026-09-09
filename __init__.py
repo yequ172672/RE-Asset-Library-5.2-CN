@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
-	"author": "NSA Cloud",
-	"version": (0, 25, 3),
+	"author": "NSA Cloud; fork maintainer: yequ172672",
+	"version": (0, 25, 5),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",

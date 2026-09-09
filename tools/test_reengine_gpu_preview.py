@@ -206,6 +206,33 @@ def test_worker_keeps_only_newest_pending_asset() -> None:
         assert not renderer.is_loading()
 
 
+def test_geometry_is_published_before_texture_completion():
+    renderer.clear_preview()
+    while not renderer._RESULT_QUEUE.empty(): renderer._RESULT_QUEUE.get_nowait()
+    package = ModuleType('progressive_preview_fixture')
+    package.__path__ = []
+    observed = []
+    def load(resource):
+        payload = synthetic_payload()
+        resource['_on_geometry'](dict(payload, materials=[]))
+        observed.append(renderer._RESULT_QUEUE.qsize())
+        return payload
+    package.preview_data = SimpleNamespace(load_preview=load)
+    renderer._pending_request = (renderer._generation, {}, threading.Event())
+    with mock.patch.dict(sys.modules, {'progressive_preview_fixture': package}), \
+         mock.patch.object(renderer, '__package__', 'progressive_preview_fixture'):
+        renderer._load_worker()
+    assert observed == [1]
+    assert [renderer._RESULT_QUEUE.get_nowait()[0] for _ in range(2)] == ['geometry', 'ready']
+
+
+def test_shared_material_texture_is_normalized_once():
+    payload = synthetic_payload()
+    payload['materials'].append(dict(payload['materials'][0]))
+    normalized = renderer._normalize_payload(payload)
+    assert normalized['materials'][0]['texture'] is normalized['materials'][1]['texture']
+
+
 def main() -> None:
     tests = (
         test_renderer_consumes_preview_data_schema,
@@ -214,6 +241,8 @@ def main() -> None:
         test_stale_generation_is_discarded_before_gpu_creation,
         test_leaving_provider_cancels_preview,
         test_worker_keeps_only_newest_pending_asset,
+        test_geometry_is_published_before_texture_completion,
+        test_shared_material_texture_is_normalized_once,
     )
     for test in tests:
         test()

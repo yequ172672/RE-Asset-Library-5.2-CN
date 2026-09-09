@@ -18,6 +18,12 @@ import bpy
 
 
 _INTERFACE = {
+    'Fork maintainer: yequ172672': '分支作者 / 维护者：yequ172672',
+    'Maintained for Blender 5.2, Chinese localization and OWOTS support.': '维护内容：Blender 5.2 适配、中文本地化及 OWOTS 支持。',
+    'Updates: fork releases/tags; development branch: feat/onimusha-wots': '更新来源：分叉仓库发行版 / 标签；开发分支：feat/onimusha-wots',
+    'Fork GitHub Repository': '分叉 GitHub 仓库',
+    'Report a Fork Issue': '反馈分支问题',
+
     # Preferences and asset-browser panels.
     "Donate on Ko-fi": "在 Ko-fi 上捐赠",
     "RE Asset Libraries": "RE 资产库",
@@ -65,6 +71,9 @@ _INTERFACE = {
     "Catalogs: ": "目录：",
     "Catalogs: {games}  Assets: {assets}": "目录：{games}  资产：{assets}",
     "Preview: {message}": "预览：{message}",
+    "Preview ready.": "预览已就绪。",
+    "Loading preview...": "正在加载预览…",
+    "Loading preview textures...": "模型已显示，正在加载贴图…",
     "Vertices: {vertices}  Triangles: {triangles}": "顶点：{vertices}  三角形：{triangles}",
     "Waiting for preview decoding before import": "等待预览解码结束后导入",
     "RE Asset Library Developer Tools": "RE 资产库开发工具",
@@ -537,7 +546,7 @@ def unregister(module_name=__package__):
         pass
 
 
-def _translate(function_name, message, **values):
+def _translate(function_name, message, /, **values):
     """Call Blender's context-aware translator and format dynamic values.
 
     Keeping formatting after translation lets messages such as
@@ -563,17 +572,17 @@ def _translate(function_name, message, **values):
     return translated
 
 
-def tr_iface(message, **values):
+def tr_iface(message, /, **values):
     """Translate interface labels and dialog text."""
     return _translate("pgettext_iface", message, **values)
 
 
-def tr_tip(message, **values):
+def tr_tip(message, /, **values):
     """Translate tooltip/help text."""
     return _translate("pgettext_tip", message, **values)
 
 
-def tr_report(message, **values):
+def tr_report(message, /, **values):
     """Translate operator reports while preserving English fallback behavior."""
     return _translate("pgettext_tip", message, **values)
 

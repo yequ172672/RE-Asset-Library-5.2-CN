@@ -356,7 +356,7 @@ class CatalogIndex:
                 "type": record["asset_type"],
                 "asset_type": record["asset_type"],
                 "has_preview": record["asset_type"] == "MESH",
-                "can_import": record["asset_type"] == "MESH",
+                "can_import": record["asset_type"] in {"MESH", "CHAIN2", "MDF2"},
             }
             # Platform/language suffixes make variant paths unique.  If a
             # malformed catalog repeats every identity field, preserve all
@@ -607,6 +607,26 @@ def resolve_asset(
         "asset_name": record["asset_name"],
         "metadata": metadata,
     }
+
+
+def preview_resource(asset_id, *, preferences=None, catalog_index=None):
+    """Capture metadata only: no PAK reads, extraction or file creation here."""
+    root = asset_library_root(preferences)
+    if not root or not os.path.isdir(root):
+        raise MissingCatalogError(f'RE asset library path is missing or invalid: {root}')
+    record = catalog_index.find(asset_id) if catalog_index is not None and catalog_index.root == _absolute(root) else find_asset(root, asset_id)
+    if record is None:
+        raise MissingAssetError(f"Asset ID is not present in the configured catalogs: {asset_id}")
+    info = _read_json(record['game_info_path'])
+    if info is None:
+        raise MissingAssetError('GameInfo is missing for preview')
+    extraction = _read_json(os.path.join(record['library_dir'], f"ExtractInfo_{record['game_name']}.json")) or {}
+    platform = extraction.get('platform', 'STM')
+    metadata = dict(record, game_info=info, platform=platform,
+                    pak_cache_path=os.path.join(record['library_dir'], f"PakCache_{record['game_name']}.pakcache"))
+    return dict(mesh_path=f"natives/{platform}/" + _versioned_name(record, info, platform),
+                asset_id=asset_id, asset_name=record['asset_name'], game_name=record['game_name'],
+                chunk_paths=_chunk_paths(record['game_name']), metadata=metadata, _pak_preview=True)
 
 
 __all__ = [

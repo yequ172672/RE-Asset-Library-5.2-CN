@@ -332,6 +332,11 @@ def _load_worker():
             if isinstance(resource, Mapping):
                 loader_resource = dict(resource)
                 loader_resource["_cancel_event"] = stop_event
+                def publish_geometry(geometry):
+                    if not stop_event.is_set() and _is_current_generation(generation):
+                        normalized_geometry = _normalize_payload(geometry)
+                        _RESULT_QUEUE.put(("geometry", generation, normalized_geometry, None))
+                loader_resource['_on_geometry'] = publish_geometry
             payload = preview_data.load_preview(loader_resource)
             if stop_event.is_set() or not _is_current_generation(generation):
                 continue
@@ -377,8 +382,11 @@ def _poll_main_thread():
                 break
             if not _is_current_generation(generation):
                 continue
-            if kind == "ready":
+            if kind in ("ready", "geometry"):
                 _create_gpu_preview_main(generation, payload)
+                if kind == 'geometry' and get_status()['state'] != 'error':
+                    with _LOCK:
+                        _status.update(state='loading', message='Loading preview textures...')
             elif kind == "error":
                 _set_error_main(generation, error)
 
@@ -497,11 +505,18 @@ def _normalize_materials(raw_materials):
     if not isinstance(raw_materials, (list, tuple)):
         raise ValueError("Preview materials must be a list")
     result = {}
+    shared = {}
     for slot, material in enumerate(raw_materials):
         if not isinstance(material, Mapping):
             raise ValueError("Preview materials must contain mappings")
         texture_value = material.get("base_color_texture")
-        texture = None if texture_value is None else _normalize_texture(texture_value)
+        texture = None
+        if texture_value is not None:
+            key = (texture_value.get('path'), id(texture_value.get('rgba8')))
+            texture = shared.get(key)
+            if texture is None:
+                texture = _normalize_texture(texture_value)
+                shared[key] = texture
         color = _normalize_color(material.get("base_color"), bool(texture))
         result[slot] = {"texture": texture, "color": color}
     return result
@@ -617,6 +632,7 @@ def _create_gpu_preview_main(generation, payload):
         textures = []
         textured_count = 0
         texture_errors = []
+        shared_textures = {}
         for section in payload["sections"]:
             slot = section["slot"]
             start = section["first_index"]
@@ -629,7 +645,11 @@ def _create_gpu_preview_main(generation, payload):
             texture = None
             if texture_info is not None:
                 try:
-                    texture = _create_texture(texture_info, slot)
+                    key = id(texture_info)
+                    if key not in shared_textures:
+                        shared_textures[key] = _create_texture(texture_info, slot)
+                        textures.append(shared_textures[key])
+                    texture = shared_textures[key]
                 except Exception as exc:
                     # Geometry remains useful if an optional base-color upload
                     # fails; the panel gets a warning through the status text.
@@ -639,7 +659,6 @@ def _create_gpu_preview_main(generation, payload):
                     )
             if texture is not None:
                 textured_count += 1
-                textures.append(texture)
             color = material["color"]
             draw_items.append(
                 {

@@ -43,11 +43,45 @@ import os
 from pathlib import Path
 import struct
 import tempfile
+import io
+import copy
+import threading
+from collections import OrderedDict
 from concurrent.futures import CancelledError
 from typing import Any, Iterable, Mapping, Sequence
 
 
 _DEFAULT_BASE_COLOR = (0.8, 0.8, 0.8, 1.0)
+_TEXTURES = OrderedDict()
+_PREVIEWS = OrderedDict()
+_CACHE_LOCK = threading.RLock()
+_TEXTURE_BUDGET = 128 * 1024 * 1024
+_PREVIEW_BUDGET = 128 * 1024 * 1024
+
+
+def clear_cache():
+    with _CACHE_LOCK:
+        _TEXTURES.clear()
+        _PREVIEWS.clear()
+
+
+def _cache_get(cache, key):
+    with _CACHE_LOCK:
+        item = cache.get(key)
+        if item is not None:
+            cache.move_to_end(key)
+            return item[0]
+    return None
+
+
+def _cache_put(cache, key, value, size, budget):
+    if size > budget:
+        return
+    with _CACHE_LOCK:
+        cache[key] = (value, size)
+        cache.move_to_end(key)
+        while sum(item[1] for item in cache.values()) > budget or len(cache) > 64:
+            cache.popitem(last=False)
 
 # These names mirror the active Mesh Editor's albedoTypeSet.  Keep the local
 # fallback so a plain CPU test can exercise material selection without loading
@@ -140,10 +174,26 @@ def _editor_module(mesh_module: Any, suffix: str) -> Any:
     return importlib.import_module(f"{mesh_module.__name__}.{suffix}")
 
 
-def _parse_mesh(mesh_module: Any, mesh_path: str) -> Any:
+def _parse_mesh(mesh_module: Any, mesh_path: str, source=None) -> Any:
     mesh_file = _editor_module(mesh_module, "modules.mesh.file_re_mesh")
     mesh_parse = _editor_module(mesh_module, "modules.mesh.re_mesh_parse")
-    raw_mesh = mesh_file.readREMesh(mesh_path, lodTarget=None)
+    if source is None:
+        raw_mesh = mesh_file.readREMesh(mesh_path, lodTarget=None)
+    else:
+        data = source.read(mesh_path)
+        if data[:4] == b'MPLY':
+            raise PreviewError('MPLY meshlet previews are not supported yet; use full mesh import')
+        version = int(Path(mesh_path).suffix[1:])
+        mapped = mesh_file.meshFileVersionToNewVersionDict.get(version)
+        if mapped is None:
+            raise PreviewError(f'Unsupported mesh version: {version}')
+        raw_mesh = mesh_file.REMesh()
+        raw_mesh.meshVersion = version
+        canonical = source.canonical(mesh_path)
+        parts = canonical.split('/')
+        streaming = '/'.join(parts[:2] + ['streaming'] + parts[2:])
+        streaming_data = source.read(streaming) if source.exists(streaming) else None
+        raw_mesh.read(io.BytesIO(data), mapped, None, streaming_data)
     parsed = mesh_parse.ParsedREMesh()
     parsed.ParseREMesh(
         raw_mesh,
@@ -573,6 +623,22 @@ def _decode_tga(path: str) -> tuple[int, int, bytes]:
     offset = 18 + id_length
     pixel_size = bits_per_pixel // 8
     pixel_count = width * height
+    if image_type == 2:
+        # Bulk channel/origin conversion avoids millions of Python objects.
+        import numpy as np
+        end = offset + pixel_count * pixel_size
+        if end > len(data):
+            raise PreviewError(f'TGA pixel data is truncated: {path}')
+        pixels = np.frombuffer(data, dtype=np.uint8, count=pixel_count * pixel_size,
+                               offset=offset).reshape(height, width, pixel_size)
+        if not descriptor & 0x20:
+            pixels = pixels[::-1]
+        if descriptor & 0x10:
+            pixels = pixels[:, ::-1]
+        rgba = np.empty((height, width, 4), dtype=np.uint8)
+        rgba[:, :, :3] = pixels[:, :, [2, 1, 0]]
+        rgba[:, :, 3] = pixels[:, :, 3] if pixel_size == 4 else 255
+        return width, height, rgba.tobytes()
     pixels: list[bytes] = []
     if image_type == 2:
         end = offset + pixel_count * pixel_size
@@ -610,7 +676,7 @@ def _decode_tga(path: str) -> tuple[int, int, bytes]:
     return width, height, b"".join(b"".join(row) for row in rows)
 
 
-def _decode_rgba8(path: str, mesh_module: Any, cache_root: Path) -> tuple[int, int, bytes]:
+def _decode_rgba8(path: str, mesh_module: Any, cache_root: Path, source=None, max_size=None) -> tuple[int, int, bytes]:
     """Decode one source texture without creating a Blender Image datablock."""
 
     tex_utils = _editor_module(mesh_module, "modules.tex.re_tex_utils")
@@ -620,18 +686,41 @@ def _decode_rgba8(path: str, mesh_module: Any, cache_root: Path) -> tuple[int, i
     with tempfile.TemporaryDirectory(prefix="decode_", dir=str(cache_root)) as temp_dir:
         temp = Path(temp_dir)
         dds_path = temp / "preview.dds"
-        if suffix == ".dds":
-            dds_path.write_bytes(Path(path).read_bytes())
+        if Path(path).suffix.lower() == ".dds":
+            dds_path.write_bytes(source.read(path) if source else Path(path).read_bytes())
         else:
             tex_file = tex_utils.RE_TexFile()
-            tex_file.read(path)
-            dds = tex_utils.TexToDDS(tex_file.tex, 0)
+            if source is None:
+                tex_file.read(path)
+            else:
+                tex_file.tex.read(io.BytesIO(source.read(path)))
+            texture = tex_file.tex
+            if max_size:
+                texture = _preview_mip(texture, max_size)
+            dds = tex_utils.TexToDDS(texture, 0)
             dds_file = dds_file_module.DDSFile()
             dds_file.dds = dds
             dds_file.write(str(dds_path))
         converter = texconv_module.Texconv()
         tga_path = converter.convert_to_tga(str(dds_path), out=str(temp), verbose=False)
         return _decode_tga(tga_path)
+
+
+def _preview_mip(texture, max_size):
+    """Pass only the selected first-image mip to BC decoding, preserving source."""
+    width, height = texture.header.width, texture.header.height
+    mip = 0
+    while mip + 1 < texture.header.mipCount and max(width >> mip, height >> mip) > max_size:
+        mip += 1
+    selected = copy.copy(texture)
+    selected.header = copy.copy(texture.header)
+    selected.header.width = max(1, width >> mip)
+    selected.header.height = max(1, height >> mip)
+    selected.header.depth = max(1, texture.header.depth >> mip)
+    selected.header.mipCount = 1
+    selected.header.imageCount = 1
+    selected.imageMipDataList = [[texture.imageMipDataList[0][mip]]]
+    return selected
 
 
 def _material_records(parsed_mesh: Any, mdf: Any, mesh_module: Any, resource: Mapping[str, Any], warnings: list[str]) -> list[dict[str, Any]]:
@@ -647,6 +736,8 @@ def _material_records(parsed_mesh: Any, mdf: Any, mesh_module: Any, resource: Ma
     cache_root = _cache_root(resource)
     records = []
     decoded_by_path: dict[str, dict[str, Any]] = {}
+    reader = resource.get('_source')
+    max_size = resource.get('_preview_size', 512)
     for material_name in material_names:
         _check_cancelled(resource)
         source = source_materials.get(material_name)
@@ -662,7 +753,7 @@ def _material_records(parsed_mesh: Any, mdf: Any, mesh_module: Any, resource: Ma
                     base_color = (1.0, 1.0, 1.0, 1.0)
                 reference = _texture_reference(binding)
                 try:
-                    texture_path = _find_texture_path(
+                    texture_path = reader.find_texture(reference, _texture_version(mesh_module, game_name)) if reader else _find_texture_path(
                         reference, chunk_paths, game_name, mdf_version, mesh_module
                     )
                 except Exception as exc:
@@ -674,7 +765,13 @@ def _material_records(parsed_mesh: Any, mdf: Any, mesh_module: Any, resource: Ma
                     try:
                         texture_record = decoded_by_path.get(texture_path)
                         if texture_record is None:
-                            width, height, rgba8 = _decode_rgba8(texture_path, mesh_module, cache_root)
+                            identity = reader.identity(texture_path) if reader else (texture_path, os.stat(texture_path).st_mtime_ns, os.stat(texture_path).st_size)
+                            key = (identity, max_size, mesh_module.__name__)
+                            cached = _cache_get(_TEXTURES, key)
+                            if cached is None:
+                                cached = _decode_rgba8(texture_path, mesh_module, cache_root, reader, max_size)
+                                _cache_put(_TEXTURES, key, cached, len(cached[2]), _TEXTURE_BUDGET)
+                            width, height, rgba8 = cached
                             texture_record = {
                                 "width": int(width),
                                 "height": int(height),
@@ -708,12 +805,24 @@ def load_preview(resource: Mapping[str, Any]) -> dict[str, Any]:
     missing = [key for key in required if key not in resource]
     if missing:
         raise ValueError(f"preview resource is missing required fields: {', '.join(missing)}")
-    mesh_path = os.path.abspath(os.fspath(resource["mesh_path"]))
-    if not os.path.isfile(mesh_path):
+    resource = dict(resource)
+    source = None
+    if resource.get('_pak_preview'):
+        from .preview_source import PreviewSource
+        source = PreviewSource(resource)
+        resource['_source'] = source
+    mesh_path = os.fspath(resource['mesh_path']) if source else os.path.abspath(os.fspath(resource["mesh_path"]))
+    if not source and not os.path.isfile(mesh_path):
         raise PreviewError(f"Preview mesh does not exist: {mesh_path}")
     mesh_module = _resolve_active_mesh_module(resource)
     _check_cancelled(resource)
-    parsed_mesh = _parse_mesh(mesh_module, mesh_path)
+    cache_key = (source.signature, source.identity(mesh_path), resource.get('_preview_size', 512), mesh_module.__name__) if source else None
+    cached = _cache_get(_PREVIEWS, cache_key) if cache_key else None
+    if cached is not None:
+        payload, dependencies = cached
+        if all(source.identity(path) == identity for path, identity in dependencies.items()):
+            return dict(payload, asset_id=str(resource['asset_id']), asset_name=str(resource['asset_name']), cache_hit=True)
+    parsed_mesh = _parse_mesh(mesh_module, mesh_path, source) if source else _parse_mesh(mesh_module, mesh_path)
     _check_cancelled(resource)
     if bool(getattr(parsed_mesh, "isMPLY", False)):
         raise PreviewError(
@@ -722,10 +831,15 @@ def load_preview(resource: Mapping[str, Any]) -> dict[str, Any]:
     lod_index, lod = _choose_lod(parsed_mesh)
     flattened = _flatten_lod(parsed_mesh, lod_index, lod)
     warnings = list(flattened.pop("warnings", []))
+    on_geometry = resource.get('_on_geometry')
+    if callable(on_geometry):
+        on_geometry(dict(flattened, materials=[], warnings=list(warnings)))
 
     mdf = None
     mdf_path = resource.get("mdf_path") or resource.get("_mdf_path")
-    if mdf_path is None:
+    if mdf_path is None and source is not None:
+        mdf_path = source.find_mdf(mesh_path)
+    elif mdf_path is None:
         mdf_path = _find_mdf_path(
             mesh_path,
             str(resource["game_name"]),
@@ -734,7 +848,13 @@ def load_preview(resource: Mapping[str, Any]) -> dict[str, Any]:
         )
     if mdf_path:
         try:
-            mdf = _load_mdf(mesh_module, str(mdf_path))
+            if source is None:
+                mdf = _load_mdf(mesh_module, str(mdf_path))
+            else:
+                mdf_module = _editor_module(mesh_module, 'modules.mdf.file_re_mdf')
+                mdf = mdf_module.MDFFile()
+                mdf.fileVersion = int(Path(mdf_path).suffix[1:])
+                mdf.read(io.BytesIO(source.read(mdf_path)), mdf.fileVersion)
         except Exception as exc:
             warnings.append(f"MDF preview data unavailable for {mdf_path}: {exc}")
     else:
@@ -752,6 +872,13 @@ def load_preview(resource: Mapping[str, Any]) -> dict[str, Any]:
             "warnings": warnings,
         }
     )
+    if source is not None:
+        flattened['read_paths'] = sorted(source.read_paths)
+        flattened['cache_hit'] = False
+        # Conservative allowance for Python geometry tuples plus decoded images.
+        size = len(flattened['vertices']) * 512 + len(flattened['indices']) * 192
+        size += sum(len(m['base_color_texture']['rgba8']) for m in materials if m['base_color_texture'])
+        _cache_put(_PREVIEWS, cache_key, (flattened, dict(source.dependencies)), size, _PREVIEW_BUDGET)
     return flattened
 
 

@@ -1,12 +1,13 @@
 diff --git a/__init__.py b/__init__.py
-index 26200ca..8d19806 100644
+index 26200ca..ad563a5 100644
 --- a/__init__.py
 +++ b/__init__.py
 @@ -1,13 +1,13 @@
  bl_info = {
  	"name": "RE Chain Editor",
- 	"author": "NSA Cloud, alphaZomega",
+-	"author": "NSA Cloud, alphaZomega",
 -	"version": (14, 0),
++	"author": "NSA Cloud, alphaZomega; fork maintainer: yequ172672",
 +	"version": (14, 0, 2),
  	"blender": (3, 1, 2),
  	"location": "File > Import-Export",
@@ -136,7 +137,7 @@ index 26200ca..8d19806 100644
  			return {"CANCELLED"}
  	def invoke(self, context, event):
  		armatureObj = None
-@@ -534,20 +535,20 @@ class ExportREChain2(bpy.types.Operator, ExportHelper):
+@@ -534,24 +535,48 @@ class ExportREChain2(bpy.types.Operator, ExportHelper):
  		try:
  			chainVersion = int(os.path.splitext(self.filepath)[1].replace(".",""))
  		except:
@@ -160,8 +161,36 @@ index 26200ca..8d19806 100644
 +			self.report({"INFO"},translate_report("RE Chain export failed. See Window > Toggle System Console for details."))
  		return {"FINISHED"}
  
++class VIEW3D_PT_REChainForkMaintenance(bpy.types.Panel):
++    bl_label = "RE Chain: Fork Maintenance"
++    bl_idname = "VIEW3D_PT_re_chain_fork_maintenance"
++    bl_space_type = "VIEW_3D"
++    bl_region_type = "UI"
++    bl_category = "RE Chain"
++    bl_options = {'DEFAULT_CLOSED'}
++    bl_order = 100
++
++    @classmethod
++    def poll(cls, context):
++        return context is not None and context.scene is not None and "HIDE_RE_CHAIN_EDITOR_TAB" not in context.scene
++
++    def draw(self, context):
++        layout = self.layout
++        layout.label(text="Fork maintainer: yequ172672", icon='USER')
++        layout.label(text="Blender 5.2 adaptation")
++        layout.label(text="Chinese localization / OWOTS support")
++        layout.operator("wm.url_open", text="Author Bilibili Homepage", icon='URL').url = "https://space.bilibili.com/93825767"
++        layout.operator("wm.url_open", text="Fork GitHub Repository", icon='URL').url = "https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/tree/feat/onimusha-wots"
++        layout.operator("wm.url_open", text="Report a Fork Issue", icon='URL').url = "https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/issues"
++
++
  # Registration
-@@ -724,6 +725,7 @@ def re_chain_editor_export(self, context):
+ classes = [
++	VIEW3D_PT_REChainForkMaintenance,
+ 	REChainPreferences,
+ 	ImportREChain,
+ 	ExportREChain,
+@@ -724,6 +749,7 @@ def re_chain_editor_export(self, context):
  
  
  def register():
@@ -169,7 +198,7 @@ index 26200ca..8d19806 100644
  	addon_updater_ops.register(bl_info)
  	for classEntry in classes:
  		bpy.utils.register_class(classEntry)
-@@ -791,5 +793,6 @@ def unregister():
+@@ -791,5 +817,6 @@ def unregister():
  		bpy.utils.unregister_class(CLSP_FH_drag_import)
  	#UNREGISTER PROPERTY GROUP PROPERTIES
  	#del bpy.types.Object.re_chain_header
@@ -179,10 +208,25 @@ index 26200ca..8d19806 100644
 \ No newline at end of file
 +	register()
 diff --git a/addon_updater_ops.py b/addon_updater_ops.py
-index 9fdb901..7e41184 100644
+index 9fdb901..0c9b747 100644
 --- a/addon_updater_ops.py
 +++ b/addon_updater_ops.py
-@@ -1353,16 +1353,16 @@ def register(bl_info):
+@@ -947,6 +947,14 @@ def update_settings_ui(self, context, element=None):
+         addon_updater_ops.update_settings_ui(context)
+     """
+ 
++    info = (element if element is not None else self.layout).box()
++    info.label(text="Fork maintainer: yequ172672", icon='USER')
++    info.label(text="Maintained for Blender 5.2, Chinese localization and OWOTS support.")
++    info.label(text="Updates: fork releases/tags; development branch: feat/onimusha-wots")
++    row = info.row(align=True)
++    row.operator("wm.url_open", text="Fork GitHub Repository", icon='URL').url = "https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/tree/feat/onimusha-wots"
++    row.operator("wm.url_open", text="Report a Fork Issue", icon='URL').url = "https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/issues"
++
+     # Element is a UI element, such as layout, a row, column, or box.
+     if element is None:
+         element = self.layout
+@@ -1353,16 +1361,16 @@ def register(bl_info):
      updater.private_token = None  # "tokenstring"
  
      # Choose your own username, must match website (not needed for GitLab).
@@ -202,6 +246,24 @@ index 9fdb901..7e41184 100644
  
      # Addon subfolder path.
      # "sample/path/to/addon"
+@@ -1443,7 +1451,7 @@ def register(bl_info):
+     # but the user has the option from user preferences to directly
+     # update to the master branch or any other branches specified using
+     # the "install {branch}/older version" operator.
+-    updater.include_branches = False
++    updater.include_branches = True
+ 
+     # (GitHub only) This options allows using "releases" instead of "tags",
+     # which enables pulling down release logs/notes, as well as installs update
+@@ -1460,7 +1468,7 @@ def register(bl_info):
+     # Note: updater.include_branch_list defaults to ['master'] branch if set to
+     # none. Example targeting another multiple branches allowed to pull from:
+     # updater.include_branch_list = ['master', 'dev']
+-    updater.include_branch_list = None  # None is the equivalent = ['master']
++    updater.include_branch_list = ['feat/onimusha-wots']
+ 
+     # Only allow manual install, thus prompting the user to open
+     # the addon's web page to download, specifically: updater.website
 diff --git a/modules/blender_re_chain.py b/modules/blender_re_chain.py
 index c7d3920..efb8d8b 100644
 --- a/modules/blender_re_chain.py
@@ -1020,10 +1082,10 @@ index 6025796..ab870e4 100644
 +		layout.prop(re_chain_toolpanel, "chainGroupColor")
 diff --git a/translations.py b/translations.py
 new file mode 100644
-index 0000000..ed5ba6e
+index 0000000..858ab63
 --- /dev/null
 +++ b/translations.py
-@@ -0,0 +1,868 @@
+@@ -0,0 +1,878 @@
 +"""Chinese UI translations for RE Chain Editor.
 +
 +Blender translates RNA labels, descriptions, menu text and operator text from
@@ -1049,6 +1111,16 @@ index 0000000..ed5ba6e
 +# names, file extensions, enum identifiers and game names intentionally stay
 +# recognizable in the Chinese UI.
 +interface_translations = {
++    "Author Bilibili Homepage": "作者 B 站主页",
++    "RE Chain: Fork Maintenance": "RE Chain：分支维护",
++    "Blender 5.2 adaptation": "Blender 5.2 适配",
++    "Chinese localization / OWOTS support": "中文本地化 / OWOTS 支持",
++    'Fork maintainer: yequ172672': '分支作者 / 维护者：yequ172672',
++    'Maintained for Blender 5.2, Chinese localization and OWOTS support.': '维护内容：Blender 5.2 适配、中文本地化及 OWOTS 支持。',
++    'Updates: fork releases/tags; development branch: feat/onimusha-wots': '更新来源：分叉仓库发行版 / 标签；开发分支：feat/onimusha-wots',
++    'Fork GitHub Repository': '分叉 GitHub 仓库',
++    'Report a Fork Issue': '反馈分支问题',
++
 +    # Add-on metadata, file menus and file-browser labels.
 +    "RE Chain Editor": "RE Chain 编辑器",
 +    "Import RE Chain": "导入 RE Chain",

@@ -67,6 +67,23 @@ def load_native():
 
 
 class ReEngineBrowserTests(unittest.TestCase):
+    def test_preview_never_uses_full_import_resolver_even_when_forced(self):
+        native = load_native()
+        resource = {'metadata': {'asset_type': 'MESH'}}
+        operator = native.REENGINE_OT_preview_asset()
+        operator.asset_id = 'fixture'
+        with mock.patch.object(native, '_preferences', return_value=SimpleNamespace(forceExtract=True)), \
+             mock.patch.object(native, '_resolve', side_effect=AssertionError('Full extraction called')), \
+             mock.patch.object(native.browser_resources, 'preview_resource', return_value=resource) as capture, \
+             mock.patch.object(native, '_request_gpu_preview') as request:
+            self.assertEqual(operator.execute(SimpleNamespace()), {'FINISHED'})
+            capture.assert_called_once()
+            request.assert_called_once()
+
+    def test_preview_status_accepts_message_format_value(self):
+        native = load_native()
+        self.assertEqual(native._translate("tr_iface", "Preview: {message}", message="ready"), "Preview: ready")
+
     def setUp(self):
         self.resources = load_resources()
         self.temp_dir = tempfile.TemporaryDirectory(prefix="reengine-browser-")
@@ -107,7 +124,7 @@ class ReEngineBrowserTests(unittest.TestCase):
         self.assertTrue(mesh["has_preview"])
         self.assertTrue(mesh["can_import"])
         self.assertFalse(chain["has_preview"])
-        self.assertFalse(chain["can_import"])
+        self.assertTrue(chain["can_import"])
         self.assertEqual(
             mesh["asset_id"],
             self.resources.asset_id_for("OWOTS", "art/model/ch0/body.mesh"),
@@ -116,6 +133,44 @@ class ReEngineBrowserTests(unittest.TestCase):
             chain["asset_id"],
             self.resources.asset_id_for("OWOTS", "art/model/ch0/body.chain2", "STM", "en"),
         )
+
+    def test_mdf_has_import_icon_without_gpu_preview(self):
+        catalog = self.game_dir / "REAssetCatalog_OWOTS.tsv"
+        with catalog.open("a", encoding="utf-8") as handle:
+            handle.write("art/model/ch0/body.mdf2\tBody MDF\t\t\t\t\n")
+        tree = self.resources.build_tree(str(self.root), "/Assets/OWOTS/art/model/ch0")
+        mdf = next(item for item in tree["children"] if item["type"] == "MDF2")
+        self.assertTrue(mdf["can_import"])
+        self.assertFalse(mdf["has_preview"])
+
+    def test_full_import_dispatches_to_matching_editor_and_handles_failure(self):
+        native = load_native()
+        for asset_type, helper in (("MESH", "importREMeshAsset"),
+                                   ("CHAIN2", "importREChain2Asset"),
+                                   ("MDF2", "importREMDFAsset")):
+            for accepted in (True, False):
+                with self.subTest(asset_type=asset_type, accepted=accepted):
+                    record = dict(self.resources.find_asset(str(self.root),
+                        self.resources.asset_id_for("OWOTS", "art/model/ch0/body.mesh")))
+                    record["asset_type"] = asset_type
+                    resource = {"metadata": record, "mesh_path": "resolved-file", "asset_name": "Body"}
+                    importer = mock.Mock()
+                    module = SimpleNamespace(**{helper: importer})
+                    prefs = SimpleNamespace(forceExtract=True)
+                    operator = native.REENGINE_OT_import_asset()
+                    operator.asset_id = "fixture"
+                    with mock.patch.object(native, "_preferences", return_value=prefs), \
+                         mock.patch.object(native, "_resolve", return_value=resource) as resolve, \
+                         mock.patch.object(native.importlib, "import_module", return_value=module), \
+                         mock.patch.object(native, "_import_after_preview", return_value=accepted) as dispatch, \
+                         mock.patch.object(native, "_clear_gpu_preview"), \
+                         mock.patch.object(native, "_report"):
+                        self.assertEqual(operator.execute(SimpleNamespace()),
+                                         {"FINISHED"} if accepted else {"CANCELLED"})
+                        resolve.assert_called_once_with("fixture", force_extract=True)
+                        self.assertIs(dispatch.call_args.args[1], importer)
+                        self.assertEqual(dispatch.call_args.args[2].get("~GAME"), "OWOTS")
+                        self.assertEqual(dispatch.call_args.args[3], "resolved-file")
 
     def test_resolve_asset_returns_absolute_import_contract(self):
         asset_id = self.resources.asset_id_for("OWOTS", "art/model/ch0/body.mesh")
