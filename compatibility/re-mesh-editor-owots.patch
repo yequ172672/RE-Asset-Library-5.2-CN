@@ -11,10 +11,10 @@ index 6c6c70a..4bcdd13 100644
  .spyproject
 diff --git a/AGENTS.md b/AGENTS.md
 new file mode 100644
-index 0000000..26418c9
+index 0000000..e9ca479
 --- /dev/null
 +++ b/AGENTS.md
-@@ -0,0 +1,47 @@
+@@ -0,0 +1,48 @@
 +# RE Mesh Editor workspace guide
 +
 +## Key Files
@@ -49,6 +49,7 @@ index 0000000..26418c9
 +- Workspace TEX conversion takes color/compression semantics from original game metadata; Blender image color tags must not alter authored channels. Nullify Texture Bindings operates on each selected MDF object and reports unmapped types; it changes MDF paths, not viewport shaders.
 +- Mesh export discovers used vertex groups in one pass per mesh, preserving zero-weight group membership semantics. Workspace dialog changes are lightweight; native DDS encoding runs in an isolated bundled-Python worker and must not crash the host.
 +- The default mesh import should select LOD0. Test all-LOD imports separately rather than treating their combined vertex count as one high-resolution mesh.
++- `re_mesh.convert_to_empty_mesh` replaces selected editable meshes with tiny UV-mapped quads in object mode, preserving object identity/materials/armature links and shared unselected mesh data. It supports undo and binds skinned placeholders to a real bone with normalized weight; validate all targets before conversion.
 +- UI localization lives in `translations.py`; keep English source strings, operator IDs, RNA property names, file formats and game identifiers unchanged. Register/unregister the table with the add-on lifecycle, and use the `Operator` context plus `pgettext_iface`/`pgettext_tip` helpers for formatted messages.
 +- The updater treats `feat/onimusha-wots` as a manual-install branch target; only numeric fork releases/tags may set `update_ready` or report an automatic update.
 +
@@ -105,7 +106,7 @@ index c48c32e..d9a66f9 100644
  
  I am ending development of my RE Engine addons. No further updates or support will be provided.
 diff --git a/__init__.py b/__init__.py
-index b713bed..08f51f6 100644
+index b713bed..21746b5 100644
 --- a/__init__.py
 +++ b/__init__.py
 @@ -1,18 +1,19 @@
@@ -132,7 +133,15 @@ index b713bed..08f51f6 100644
  from datetime import datetime
  import os
  from bpy_extras.io_utils import ExportHelper,ImportHelper
-@@ -203,7 +204,7 @@ def showMessageBox(message = "", title = "Message Box", icon = 'INFO'):
+@@ -30,6 +31,7 @@ from .modules.mesh.re_mesh_propertyGroups import (
+ 	)
+ from .modules.mesh.re_mesh_operators import (
+ 	WM_OT_DeleteLoose,
++	WM_OT_ConvertToEmptyMesh,
+ 	WM_OT_RenameMeshToREFormat,
+ 	WM_OT_RemoveZeroWeightVertexGroups,
+ 	WM_OT_LimitTotalNormalizeAll,
+@@ -203,7 +205,7 @@ def showMessageBox(message = "", title = "Message Box", icon = 'INFO'):
  	def draw(self, context):
  		self.layout.label(text = message)
  
@@ -141,7 +150,7 @@ index b713bed..08f51f6 100644
  
  def setModDirectoryFromFilePath(filePath):
  	if "re_chunk_000" not in filePath and "re_dlc_stm" not in filePath and "natives" in filePath:
-@@ -262,7 +263,7 @@ class WM_OT_ClearTextureCacheFolder(Operator):
+@@ -262,7 +264,7 @@ class WM_OT_ClearTextureCacheFolder(Operator):
  				os.remove(path)
  			except Exception as err:
  				print(f"Failed to delete {path} - {str(err)}")
@@ -150,7 +159,7 @@ index b713bed..08f51f6 100644
  		checkTextureCacheSize()
  		return {'FINISHED'}
  
-@@ -285,6 +286,7 @@ class ChunkPathPropertyGroup(bpy.types.PropertyGroup):
+@@ -285,6 +287,7 @@ class ChunkPathPropertyGroup(bpy.types.PropertyGroup):
  		("KG", "Kunitsu-Gami", ""),
  		("DR", "Dead Rising", ""),
  		("ONI2", "Onimusha 2", ""),
@@ -158,7 +167,7 @@ index b713bed..08f51f6 100644
  		("MHWILDS", "Monster Hunter Wilds", ""),
  		("PRAG", "Pragmata", ""),
  		("MHS3", "Monster Hunter Stories 3", ""),
-@@ -604,9 +606,9 @@ class REMeshPreferences(AddonPreferences):
+@@ -604,9 +607,9 @@ class REMeshPreferences(AddonPreferences):
  		row = box.row()
  		if self.textureCacheCheckDate == "":
  			checkTextureCacheSize()
@@ -170,7 +179,7 @@ index b713bed..08f51f6 100644
  		
  		
  		
-@@ -886,13 +888,13 @@ class ImportREMesh(Operator, ImportHelper):
+@@ -886,13 +889,13 @@ class ImportREMesh(Operator, ImportHelper):
  				
  				
  			if not multiFileImport:
@@ -187,7 +196,7 @@ index b713bed..08f51f6 100644
  			return {"CANCELLED"}
  	
  	def invoke(self, context, event):
-@@ -948,6 +950,7 @@ class ExportREMesh(Operator, ExportHelper):
+@@ -948,6 +951,7 @@ class ExportREMesh(Operator, ExportHelper):
  				(".240306278", "Kunitsu-Gami", "Kunitsu-Gami"),
  				(".240424828", "Dead Rising", "Dead Rising"),
  				(".240827123", "Onimusha 2", "Onimusha 2"),
@@ -195,7 +204,7 @@ index b713bed..08f51f6 100644
  				(".241111606", "Monster Hunter Wilds", "Monster Hunter Wilds"),
  				#(".250925211", "Resident Evil 9 / Pragmata", "Resident Evil 9 / Pragmata"),
  				(".250925211", "Resident Evil 9", "Resident Evil 9"),
-@@ -1091,7 +1094,7 @@ class ExportREMesh(Operator, ExportHelper):
+@@ -1091,7 +1095,7 @@ class ExportREMesh(Operator, ExportHelper):
  		try:
  			meshVersion = int(os.path.splitext(self.filepath)[1].replace(".",""))
  		except:
@@ -204,7 +213,7 @@ index b713bed..08f51f6 100644
  			return{"CANCELLED"}
  		editorVersion = str(bl_info["version"][0])+"."+str(bl_info["version"][1])
  		print(f"\n{textColors.BOLD}RE Mesh Editor V{editorVersion}{textColors.ENDC}")
-@@ -1107,7 +1110,7 @@ class ExportREMesh(Operator, ExportHelper):
+@@ -1107,7 +1111,7 @@ class ExportREMesh(Operator, ExportHelper):
  				pass
  		success = exportREMeshFile(self.filepath,options)
  		if success:
@@ -213,7 +222,7 @@ index b713bed..08f51f6 100644
  			if self.targetCollection in bpy.data.collections:
  				bpy.data.collections[self.targetCollection]["BatchExport_path"] = self.filepath
  				bpy.data.collections[self.targetCollection]["BatchExport_exportAllLODs"] = self.exportAllLODs
-@@ -1118,7 +1121,7 @@ class ExportREMesh(Operator, ExportHelper):
+@@ -1118,7 +1122,7 @@ class ExportREMesh(Operator, ExportHelper):
  				bpy.data.collections[self.targetCollection]["BatchExport_preserveBoneMatrices"] = self.preserveBoneMatrices
  				bpy.data.collections[self.targetCollection]["BatchExport_exportBoundingBoxes"] = self.exportBoundingBoxes
  		else:
@@ -222,7 +231,7 @@ index b713bed..08f51f6 100644
  		
  		if bpy.context.scene.re_mdf_toolpanel.modDirectory == "":
  			setModDirectoryFromFilePath(self.filepath)
-@@ -1169,12 +1172,12 @@ class ImportREMDF(bpy.types.Operator, ImportHelper):
+@@ -1169,12 +1173,12 @@ class ImportREMDF(bpy.types.Operator, ImportHelper):
  			
  		if not hasImportErrors:
  			if not multiFileImport:
@@ -238,7 +247,7 @@ index b713bed..08f51f6 100644
  			return {"CANCELLED"}
  	def invoke(self, context, event):
  		if self.directory:
-@@ -1216,7 +1219,9 @@ class ExportREMDF(bpy.types.Operator, ExportHelper):
+@@ -1216,7 +1220,9 @@ class ExportREMDF(bpy.types.Operator, ExportHelper):
  				(".40", "Dragon's Dogma 2 / Kunitsu-Gami / Dead Rising", "Dragon's Dogma 2, Kunitsu-Gami, Dead Rising"),
  				(".46", "Onimusha 2", "Onimusha 2"),
  				(".45", "Monster Hunter Wilds", "Monster Hunter Wilds"),
@@ -249,7 +258,7 @@ index b713bed..08f51f6 100644
  				(".49", "Monster Hunter Stories 3", "Monster Hunter Stories 3"),
  			  ]
  		)
-@@ -1264,7 +1269,7 @@ class ExportREMDF(bpy.types.Operator, ExportHelper):
+@@ -1264,7 +1270,7 @@ class ExportREMDF(bpy.types.Operator, ExportHelper):
  		print("https://github.com/NSACloud/RE-Mesh-Editor")
  		success = exportMDFFile(self.filepath,self.targetCollection)
  		if success:
@@ -258,7 +267,7 @@ index b713bed..08f51f6 100644
  			
  			if bpy.context.scene.re_mdf_toolpanel.modDirectory == "":
  				setModDirectoryFromFilePath(self.filepath)
-@@ -1272,7 +1277,7 @@ class ExportREMDF(bpy.types.Operator, ExportHelper):
+@@ -1272,7 +1278,7 @@ class ExportREMDF(bpy.types.Operator, ExportHelper):
  			bpy.data.collections[self.targetCollection]["BatchExport_path"] = self.filepath
  			return {"FINISHED"}
  		else:
@@ -267,7 +276,7 @@ index b713bed..08f51f6 100644
  			return {"CANCELLED"}
  
  class ImportREFBXSkel(bpy.types.Operator, ImportHelper):
-@@ -1301,7 +1306,7 @@ class ImportREFBXSkel(bpy.types.Operator, ImportHelper):
+@@ -1301,7 +1307,7 @@ class ImportREFBXSkel(bpy.types.Operator, ImportHelper):
  		if success:
  			return {"FINISHED"}
  		else:
@@ -276,7 +285,7 @@ index b713bed..08f51f6 100644
  			return {"CANCELLED"}
  
  def update_targetFBXSkelArmature(self,context):
-@@ -1391,11 +1396,11 @@ class ExportREFBXSkel(bpy.types.Operator, ExportHelper):
+@@ -1391,11 +1397,11 @@ class ExportREFBXSkel(bpy.types.Operator, ExportHelper):
  	def execute(self, context):
  		success = exportFBXSkelFile(self.filepath,self.targetArmature)
  		if success:
@@ -290,7 +299,7 @@ index b713bed..08f51f6 100644
  			return {"CANCELLED"}
  
  class ImportRESFur(bpy.types.Operator, ImportHelper):
-@@ -1435,12 +1440,12 @@ class ImportRESFur(bpy.types.Operator, ImportHelper):
+@@ -1435,12 +1441,12 @@ class ImportRESFur(bpy.types.Operator, ImportHelper):
  			
  		if not hasImportErrors:
  			if not multiFileImport:
@@ -306,7 +315,7 @@ index b713bed..08f51f6 100644
  			return {"CANCELLED"}
  	def invoke(self, context, event):
  		if self.directory:
-@@ -1522,7 +1527,7 @@ class ExportRESFur(bpy.types.Operator, ExportHelper):
+@@ -1522,7 +1528,7 @@ class ExportRESFur(bpy.types.Operator, ExportHelper):
  		print("https://github.com/NSACloud/RE-Mesh-Editor")
  		success = exportSFurFile(self.filepath,self.targetCollection)
  		if success:
@@ -315,7 +324,7 @@ index b713bed..08f51f6 100644
  			
  			if bpy.context.scene.re_mdf_toolpanel.modDirectory == "":
  				setModDirectoryFromFilePath(self.filepath)
-@@ -1530,12 +1535,39 @@ class ExportRESFur(bpy.types.Operator, ExportHelper):
+@@ -1530,12 +1536,39 @@ class ExportRESFur(bpy.types.Operator, ExportHelper):
  			bpy.data.collections[self.targetCollection]["BatchExport_path"] = self.filepath
  			return {"FINISHED"}
  		else:
@@ -356,7 +365,15 @@ index b713bed..08f51f6 100644
  	#preferences
  	ChunkPathPropertyGroup,
  	AddItemOperator,
-@@ -1701,7 +1733,7 @@ if bpy.app.version >= (4, 1, 0):
+@@ -1567,6 +1600,7 @@ classes = [
+ 	ImportREMesh,
+ 	ExportREMesh,
+ 	WM_OT_DeleteLoose,
++	WM_OT_ConvertToEmptyMesh,
+ 	WM_OT_RenameMeshToREFormat,
+ 	WM_OT_RemoveZeroWeightVertexGroups,
+ 	WM_OT_LimitTotalNormalizeAll,
+@@ -1701,7 +1735,7 @@ if bpy.app.version >= (4, 1, 0):
  		@classmethod
  		def poll_drop(cls, context):
  			return (context.area and context.area.type == 'VIEW_3D')
@@ -365,7 +382,7 @@ index b713bed..08f51f6 100644
  	for texVersion in gameNameToTexVersionDict.values():
  		texExtensionsString += f".{str(texVersion)};"
  	texExtensionsString += ".31;"#RE Verse tex drag and drop support
-@@ -1793,7 +1825,10 @@ def re_mesh_editor_export(self, context):
+@@ -1793,7 +1827,10 @@ def re_mesh_editor_export(self, context):
  	self.layout.menu("EXPORT_MT_re_mesh_editor",icon = "MOD_LINEART")
  
  def register():
@@ -376,7 +393,7 @@ index b713bed..08f51f6 100644
  	for classEntry in classes:
  		bpy.utils.register_class(classEntry)
  		
-@@ -1832,7 +1867,10 @@ def register():
+@@ -1832,7 +1869,10 @@ def register():
  		
  	
  def unregister():
@@ -387,7 +404,7 @@ index b713bed..08f51f6 100644
  	addon_updater_ops.unregister()
  	for classEntry in classes:
  		bpy.utils.unregister_class(classEntry)
-@@ -1860,4 +1898,3 @@ def unregister():
+@@ -1860,4 +1900,3 @@ def unregister():
  		bpy.utils.unregister_class(SFUR_FH_drag_import)
  if __name__ == '__main__':
  	register()
@@ -1395,18 +1412,68 @@ index c7d5def..8e4c938 100644
  		elif version == VERSION_RE9:
  			reMesh.lodHeader.skinWeightCount = 18#
 diff --git a/modules/mesh/re_mesh_operators.py b/modules/mesh/re_mesh_operators.py
-index 0a019b7..7145ade 100644
+index 0a019b7..9d7a9d7 100644
 --- a/modules/mesh/re_mesh_operators.py
 +++ b/modules/mesh/re_mesh_operators.py
-@@ -14,6 +14,7 @@ from .blender_re_mesh import solveRepeatedUVs
+@@ -14,6 +14,57 @@ from .blender_re_mesh import solveRepeatedUVs
  from .re_mesh_propertyGroups import ExporterNodePropertyGroup,MESH_UL_REExporterList
  from ..gen_functions import splitNativesPath
  from ..blender_utils import showErrorMessageBox
 +from ... import translations
++class WM_OT_ConvertToEmptyMesh(Operator):
++    bl_label = "Convert to Empty Mesh"
++    bl_idname = "re_mesh.convert_to_empty_mesh"
++    bl_description = "Replace selected meshes with tiny four-vertex placeholders while preserving materials and armature links"
++    bl_options = {'REGISTER', 'UNDO'}
++
++    plane_size: FloatProperty(name="Placeholder Size", default=0.0001, min=0.00001, max=0.001,
++        description="Side length of the placeholder plane in local coordinates")
++
++    @classmethod
++    def poll(cls, context):
++        return context.mode == 'OBJECT' and any(o.type == 'MESH' and o.is_editable for o in context.selected_objects)
++
++    def execute(self, context):
++        targets = [o for o in context.selected_objects if o.type == 'MESH' and o.is_editable]
++        if not targets:
++            return {'CANCELLED'}
++        # Validate every skinned object before replacing any geometry.
++        groups = {}
++        for obj in targets:
++            armature = obj.find_armature()
++            if armature:
++                valid = [g.name for g in obj.vertex_groups if g.name in armature.data.bones]
++                if not valid:
++                    valid = [b.name for b in armature.data.bones if b.use_deform]
++                if not valid:
++                    self.report({'ERROR'}, translations.tipf("No deform bone available for {name}", name=obj.name))
++                    return {'CANCELLED'}
++                groups[obj.name] = valid[0]
++        half = self.plane_size / 2
++        for obj in targets:
++            old = obj.data
++            mesh = bpy.data.meshes.new(old.name + "_placeholder")
++            mesh.from_pydata([(-half, -half, 0), (half, -half, 0), (half, half, 0), (-half, half, 0)], [], [(0, 1, 2, 3)])
++            for material in old.materials:
++                mesh.materials.append(material)
++            mesh.polygons[0].material_index = old.polygons[0].material_index if old.polygons else obj.active_material_index
++            uv = mesh.uv_layers.new(name=old.uv_layers.active.name if old.uv_layers.active else "UVMap")
++            for item, value in zip(uv.data, [(0, 0), (1, 0), (1, 1), (0, 1)]):
++                item.uv = value
++            for key in old.keys():
++                mesh[key] = old[key]
++            obj.data = mesh
++            if obj.name in groups:
++                group = obj.vertex_groups.get(groups[obj.name]) or obj.vertex_groups.new(name=groups[obj.name])
++                group.add([0, 1, 2, 3], 1.0, 'REPLACE')
++            mesh.update()
++        self.report({'INFO'}, translations.tipf("Converted {count} meshes to placeholders", count=len(targets)))
++        return {'FINISHED'}
++
  class WM_OT_DeleteLoose(Operator):
  	bl_label = "Delete Loose Geometry"
  	bl_idname = "re_mesh.delete_loose"
-@@ -32,9 +33,9 @@ class WM_OT_DeleteLoose(Operator):
+@@ -32,9 +83,9 @@ class WM_OT_DeleteLoose(Operator):
  				bpy.ops.mesh.delete_loose()
  				bpy.ops.object.mode_set(mode='OBJECT')
  		if context.selected_objects == []: 
@@ -1418,7 +1485,7 @@ index 0a019b7..7145ade 100644
  		return {'FINISHED'}
  class WM_OT_RenameMeshToREFormat(Operator):
  	bl_label = "Rename Meshes"
-@@ -66,9 +67,9 @@ class WM_OT_RenameMeshToREFormat(Operator):
+@@ -66,9 +117,9 @@ class WM_OT_RenameMeshToREFormat(Operator):
  				groupIndexDict[groupID] += 1
  				
  		if context.selected_objects == []: 
@@ -1430,7 +1497,7 @@ index 0a019b7..7145ade 100644
  		return {'FINISHED'}
  
  
-@@ -92,9 +93,9 @@ class WM_OT_RemoveZeroWeightVertexGroups(Operator):
+@@ -92,9 +143,9 @@ class WM_OT_RemoveZeroWeightVertexGroups(Operator):
  			for group in emptyGroupList:
  				obj.vertex_groups.remove(group)
  		if context.selected_objects == []: 
@@ -1442,7 +1509,7 @@ index 0a019b7..7145ade 100644
  		return {'FINISHED'}
  	
  class WM_OT_LimitTotalNormalizeAll(Operator):
-@@ -132,9 +133,9 @@ class WM_OT_LimitTotalNormalizeAll(Operator):
+@@ -132,9 +183,9 @@ class WM_OT_LimitTotalNormalizeAll(Operator):
  				print(f"Limited total weights to {weightLimit} and normalized {selectedObj.name}")
  				bpy.ops.object.mode_set(mode='OBJECT')
  		if context.selected_objects == []:
@@ -1454,7 +1521,7 @@ index 0a019b7..7145ade 100644
  		return {'FINISHED'}
  class WM_OT_CreateMeshCollection(Operator):
  	bl_label = "Create Mesh Collection"
-@@ -163,10 +164,10 @@ class WM_OT_CreateMeshCollection(Operator):
+@@ -163,10 +214,10 @@ class WM_OT_CreateMeshCollection(Operator):
  					lodCollection = bpy.data.collections.new(f"Main Mesh LOD{str(i)} - {collection.name}")
  					lodCollection["LOD Distance"] = 0.167932*(i+1)
  					collection.children.link(lodCollection)
@@ -1467,7 +1534,7 @@ index 0a019b7..7145ade 100644
  			return {'CANCELLED'}
  	
  	def invoke(self,context,event):
-@@ -446,9 +447,9 @@ class WM_OT_REBatchExporter(Operator):
+@@ -446,9 +497,9 @@ class WM_OT_REBatchExporter(Operator):
  				print(f"Unsupported File Type ({exportItem.exportType}), skipping")
  				failCount += 1
  		if failCount != 0:
@@ -1479,7 +1546,7 @@ index 0a019b7..7145ade 100644
  		return {'FINISHED'}
  	
  	def invoke(self, context, event):
-@@ -513,7 +514,7 @@ class WM_OT_REBatchExporter(Operator):
+@@ -513,7 +564,7 @@ class WM_OT_REBatchExporter(Operator):
  			#Move cursor to center so extract window is at the center of the window
  			context.window.cursor_warp(centerX,centerY)
  		
@@ -1488,7 +1555,7 @@ index 0a019b7..7145ade 100644
  
  	
  	def draw(self,context):
-@@ -526,7 +527,7 @@ class WM_OT_REBatchExporter(Operator):
+@@ -526,7 +577,7 @@ class WM_OT_REBatchExporter(Operator):
  		split2 = col1.split()
  		col1sub1 = split2.column()
  		col1sub1.alignment = "LEFT"
@@ -1497,7 +1564,7 @@ index 0a019b7..7145ade 100644
  		col1sub2 = col1.column()
  		row = split2.row()
  		row.alignment = "RIGHT"
-@@ -543,13 +544,13 @@ class WM_OT_REBatchExporter(Operator):
+@@ -543,13 +594,13 @@ class WM_OT_REBatchExporter(Operator):
  			type='DEFAULT'
  			)
  		col2 = split.column()
@@ -1514,7 +1581,7 @@ index 0a019b7..7145ade 100644
  				
  				box.prop(item,"path")
  				if item.invalid:
-@@ -566,7 +567,7 @@ class WM_OT_REBatchExporter(Operator):
+@@ -566,7 +617,7 @@ class WM_OT_REBatchExporter(Operator):
  					box.prop(item, "preserveBoneMatrices")
  					box.prop(item, "exportBoundingBoxes")
  			else:
@@ -1523,7 +1590,7 @@ index 0a019b7..7145ade 100644
  				
  
  class WM_OT_SolveRepeatedUVs(Operator):
-@@ -583,9 +584,9 @@ class WM_OT_SolveRepeatedUVs(Operator):
+@@ -583,9 +634,9 @@ class WM_OT_SolveRepeatedUVs(Operator):
  		solveRepeatedUVs(selection)
  		
  		if context.selected_objects == []: 
@@ -1535,7 +1602,7 @@ index 0a019b7..7145ade 100644
  		return {'FINISHED'}
  	
  class WM_OT_QuickBatchExport(Operator):
-@@ -594,4 +595,4 @@ class WM_OT_QuickBatchExport(Operator):
+@@ -594,4 +645,4 @@ class WM_OT_QuickBatchExport(Operator):
  	bl_description = "Single click batch export. Works the same as RE Batch Export but there is no prompt to configure settings.\nThe previous settings of RE Batch Export are used."
  	def execute(self, context):
  		bpy.ops.re_mesh.batch_exporter()
@@ -1568,6 +1635,18 @@ index db5ce0a..0d7bb16 100644
 -			pass#TODO Parse MPLY
 \ No newline at end of file
 +			pass#TODO Parse MPLY
+diff --git a/modules/mesh/ui_re_mesh_panels.py b/modules/mesh/ui_re_mesh_panels.py
+index 65b55cc..f9023b6 100644
+--- a/modules/mesh/ui_re_mesh_panels.py
++++ b/modules/mesh/ui_re_mesh_panels.py
+@@ -34,6 +34,7 @@ class OBJECT_PT_MeshObjectModePanel(Panel):
+ 		re_mdf_toolpanel = scene.re_mdf_toolpanel
+ 		layout.operator("re_mesh.create_mesh_collection",icon = "COLLECTION_NEW")
+ 		layout.operator("re_mesh.rename_meshes",icon = "MOD_LINEART")
++		layout.operator("re_mesh.convert_to_empty_mesh",icon = "MESH_PLANE")
+ 		layout.operator("re_mesh.delete_loose",icon = "SNAP_VERTEX")
+ 		layout.operator("re_mesh.solve_repeated_uvs",icon = "UV")
+ 		layout.operator("re_mesh.remove_zero_weight_vertex_groups",icon = "MESH_DATA")
 diff --git a/modules/sfur/re_sfur_operators.py b/modules/sfur/re_sfur_operators.py
 index a251232..bdebed6 100644
 --- a/modules/sfur/re_sfur_operators.py
@@ -10055,10 +10134,10 @@ index 91fcd9f..7c9b1bf 100644
 \ No newline at end of file
 diff --git a/tests/AGENTS.md b/tests/AGENTS.md
 new file mode 100644
-index 0000000..7efedb8
+index 0000000..b7e938e
 --- /dev/null
 +++ b/tests/AGENTS.md
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,30 @@
 +# Workspace export tests
 +
 +## Key Files
@@ -10071,6 +10150,7 @@ index 0000000..7efedb8
 +| `blender_workspace_mdf.py` | MDF scalar/color/vector updates, preview-node synchronization and revert cleanup |
 +| `blender_owots_mdf_metadata.py` | OWOTS header/material metadata retention, legacy source recovery, authored-path preservation and missing-source guard |
 +| `blender_baseline_texture_paths.py` | Current-scene edited NRRO routing toggle, original streaming/base paths and unchanged MDF/baseline validation |
++| `blender_empty_mesh.py` | Selected-only placeholder conversion, shared-mesh isolation, materials/transforms and real OWOTS skinning/export validation |
 +| `blender_workspace_image_state.py` | Concurrent external/pixel edits and save/reopen preservation of dirty images |
 +| `blender_import_baseline_errors.py` | Import baseline validation never opens export dialogs; manual validation remains active and preserves weights |
 +| `blender_workspace_scene_scope.py` | Selected Outliner parent/mesh expansion, deduplication, MDF dependencies and no-selection scope |
@@ -10130,6 +10210,54 @@ index 0000000..3cbd0c6
 +
 +if __name__ == '__main__':
 +    verify(importlib.import_module('RE-Mesh-Editor-main.modules.workspace.export_pipeline'))
+diff --git a/tests/blender_empty_mesh.py b/tests/blender_empty_mesh.py
+new file mode 100644
+index 0000000..07c85ec
+--- /dev/null
++++ b/tests/blender_empty_mesh.py
+@@ -0,0 +1,42 @@
++"""Blender background regression for selected-only, shared-data-safe placeholders and RE export."""
++import sys,importlib
++from pathlib import Path
++import bpy,addon_utils
++sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
++addon_utils.enable('RE-Mesh-Editor-main',default_set=True)
++bpy.context.preferences.addons['RE-Mesh-Editor-main'].preferences.showConsole=False
++bpy.ops.object.select_all(action='DESELECT')
++mesh=bpy.data.meshes.new('shared');mesh.from_pydata([(0,0,0),(1,0,0),(0,1,0)],[],[(0,1,2)])
++mat=bpy.data.materials.new('keep_material');mesh.materials.append(mat)
++a=bpy.data.objects.new('selected',mesh);b=bpy.data.objects.new('unselected',mesh)
++for o in [a,b]:bpy.context.collection.objects.link(o)
++a['keep']='value';a.location=(1,2,3);a.select_set(True);bpy.context.view_layer.objects.active=a
++assert bpy.ops.re_mesh.convert_to_empty_mesh()=={'FINISHED'}
++assert len(a.data.vertices)==4 and len(a.data.polygons)==1 and len(a.data.uv_layers)==1
++assert b.data==mesh and len(b.data.vertices)==3
++assert a['keep']=='value' and tuple(a.location)==(1,2,3) and a.data.materials[0]==mat
++assert bpy.context.view_layer.objects.active==a and a.select_get() and not b.select_get()
++assert 'UNDO' in importlib.import_module('RE-Mesh-Editor-main.modules.mesh.re_mesh_operators').WM_OT_ConvertToEmptyMesh.bl_options
++bpy.ops.object.select_all(action='DESELECT');assert not bpy.ops.re_mesh.convert_to_empty_mesh.poll()
++print('PLACEHOLDER_SELECTION_SHARED_DATA_PASS')
++if '--' in sys.argv:
++ bpy.ops.wm.open_mainfile(filepath=sys.argv[sys.argv.index('--')+1])
++ c=next(c for c in bpy.data.collections if c.get('~TYPE')=='RE_MESH_COLLECTION')
++ bpy.ops.object.select_all(action='DESELECT')
++ objs=[o for o in c.all_objects if o.type=='MESH']
++ for o in objs:o.select_set(True)
++ bpy.context.view_layer.objects.active=objs[0]
++ assert bpy.ops.re_mesh.convert_to_empty_mesh()=={'FINISHED'}
++ for o in objs:
++  assert len(o.data.vertices)==4
++  arm=o.find_armature()
++  if arm:
++   for v in o.data.vertices:
++    assert len(v.groups)==1 and v.groups[0].weight==1
++    assert o.vertex_groups[v.groups[0].group].name in arm.data.bones
++ t=importlib.import_module('RE-Mesh-Editor-main.modules.workspace.export_tracking')
++ import json
++ baseline=json.loads(c[t.BASELINE]);fingerprint,payload=t.snapshot(c,baseline['game'],baseline['version'])
++ assert payload
++ print('PLACEHOLDER_REAL_OWOTS_EXPORT_PASS',len(payload))
++
 diff --git a/tests/blender_export_crash_regression.py b/tests/blender_export_crash_regression.py
 new file mode 100644
 index 0000000..cfbc77c
@@ -11056,10 +11184,10 @@ index 0000000..5e23842
 +    unittest.main()
 diff --git a/translations.py b/translations.py
 new file mode 100644
-index 0000000..3bbc6ba
+index 0000000..cf2825c
 --- /dev/null
 +++ b/translations.py
-@@ -0,0 +1,985 @@
+@@ -0,0 +1,991 @@
 +"""Chinese UI translations for the RE Mesh Editor Blender add-on.
 +
 +The source strings remain English message ids. Blender resolves these entries
@@ -11103,6 +11231,12 @@ index 0000000..3bbc6ba
 +    "Associated MDF and textures are included automatically": "自动检查各模型关联的 MDF 和纹理，仅导出修改",
 +    "Detect imported mesh collections in the current scene and export their changed meshes, MDF and textures": "自动识别当前场景的导入模型集合，导出有修改的网格、MDF 和纹理",
 +    "Update imported assets in the current scene and package all current Mod assets": "更新当前场景的导入资产，并打包工作区全部有效修改",
++    "Convert to Empty Mesh": "转为空模",
++    "Replace selected meshes with tiny four-vertex placeholders while preserving materials and armature links": "将所选网格转为四顶点微小平面，保留材质及骨架关系；支持撤销",
++    "Placeholder Size": "空模大小",
++    "Side length of the placeholder plane in local coordinates": "微小平面在对象局部坐标中的边长",
++    "No deform bone available for {name}": "{name} 没有可用的变形骨骼",
++    "Converted {count} meshes to placeholders": "已将 {count} 个网格转为空模",
 +    "Prefer Baseline Texture Paths": "优先替换基线纹理路径",
 +    "Write edited images to their original imported texture paths, including streaming/base pairs; MDF bindings remain unchanged": "将修改后的图片写入原始导入纹理路径（包含 streaming/base 配套文件），不修改 MDF 绑定",
 +    "MDF bindings remain unchanged": "MDF 绑定路径保持不变",
