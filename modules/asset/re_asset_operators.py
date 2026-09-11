@@ -337,102 +337,10 @@ def downloadREAssetLibDirectory(timeout = 30):
 		print(f"Failed to download {url}")
 	return jsonDict
 
-class WM_OT_RenderREAssets(Operator):
-	bl_label = "Render RE Asset Thumbnails"
-	bl_idname = "re_asset.render_re_asset_thumbnails"
-	bl_description = "Renders thumbnails for all RE assets of a supported type.\nThis will open a new blend file and will take a long time.\nOnly assets without existing thumbnails will be rendered.\nA lot of storage space will be used for cached textures. Consider clearing RE Mesh Editor's texture cache folder after rendering"
-	bl_options = {'INTERNAL'}
-	def execute(self, context):
-		addonDir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-		hdriPath = os.path.join(addonDir,"Resources","HDRI","thumbnailRenderEnvTexture.hdr")
-		blendDir = os.path.split(bpy.context.blend_data.filepath)[0]
-		rendererBlendPath = os.path.join(addonDir,"Resources","Blend","assetRenderer.blend")#This may seem pointless, it's a blank blend file. However, if blender's default startup is used, it'll cause textures to show up pink in the render for whatever reason.
-		scriptPath = os.path.join(addonDir,"Resources","Scripts","renderAssets.py")
-		try:
-			gameName = os.path.split(bpy.context.blend_data.filepath)[1].split("REAssetLibrary_")[1].split(".blend")[0]
-		except:
-			gameName = "UNKN"
-		print(f"Game Name:{gameName}")
-		renderJobPath = os.path.join(blendDir,f"RenderJob_{gameName}.json")
-		gameInfoPath = os.path.join(blendDir,f"GameInfo_{gameName}.json")
-		
-		if os.path.isfile(gameInfoPath):
-			gameInfo = loadGameInfo(gameInfoPath)
-				
-		else:
-			print(f"RE Asset Library - Missing GameInfo:{gameInfoPath}")
-		gameName = gameInfo["GameName"]
-		meshVersion = "."+gameInfo["fileVersionDict"]["MESH_VERSION"]
-		#Generate render job json
-		renderJobDict = dict()
-		meshPathList = []
-		meshPathSet = set()
-		print("Generating RenderJob file.")
-		foundAssets = False
-		if bpy.context.scene.get("isREAssetLibrary"):
-			
-			renderJobDict["GAME"] = gameName
-			thumbnailDirectory = os.path.join(os.path.split(bpy.context.blend_data.filepath)[0],f"REAssetLibrary_{gameName}_thumbnails")
-			#print(thumbnailDirectory)
-			os.makedirs(thumbnailDirectory,exist_ok = True)
-			renderJobDict["Output Path"] = thumbnailDirectory
-			renderJobDict["HDRI Path"] = hdriPath
-			
-			for obj in bpy.data.objects:
-				if obj.get("~TYPE") == "RE_ASSET_LIBRARY_ASSET":
-					assetType = obj.get("assetType")
-					
-					match assetType:
-						case "MESH":
-							
-							hashedPath = str(crc32(str(obj["assetPath"].lower()).encode("utf-8")))+IMAGE_FORMAT
-							#print(hashedPath)
-							fullThumbnailPath = os.path.join(thumbnailDirectory,hashedPath)
-							#print(fullThumbnailPath)
-							if (not os.path.exists(fullThumbnailPath) or not os.path.isfile(fullThumbnailPath)):# and not skipExistingThumbnails:
-								chunkPathList = getChunkPathList(gameName)
-								for chunkPath in chunkPathList:
-									fullMeshPath = os.path.join(chunkPath,obj["assetPath"]+meshVersion)
-									#print(fullMeshPath)
-									if os.path.exists(fullMeshPath):
-										if obj["assetPath"] not in meshPathSet:
-											entry = dict()
-											entry["path"] = fullMeshPath
-											entry["outputName"] = os.path.split(obj["assetPath"].lower())[1]+"-"+hashedPath
-											meshPathSet.add(obj["assetPath"])
-											meshPathList.append(entry)
-											break
-			if len(meshPathList) != 0:
-				foundAssets = True
-			#meshPathList.sort(key = lambda item: item["path"])
-			meshPathList.sort(key = lambda item: item["outputName"])
-			renderJobDict["entryList"] = meshPathList
-			with open(renderJobPath,"w",encoding = "utf-8") as outputFile:
-				json.dump(renderJobDict,outputFile,indent=4,separators=(',', ': '))
-			print(f"Generated {renderJobPath}")
-		
-		
-		if os.path.isfile(scriptPath) and os.path.isfile(renderJobPath) and foundAssets:
-			subprocess.Popen([bpy.app.binary_path, "--python", scriptPath,"--",renderJobPath])
-			self.report({"INFO"},tr_report("Started asset render job."))
-		else:
-			if not os.path.isfile(renderJobPath):
-				print("RenderJob json file was not generated. cannot render.")
-				
-			if not foundAssets:
-				print("No renderable files found. This may mean that the chunk path is not correct.\nIf files in the library can not be found in any chunk paths, they can't be rendered.")
-			if not os.path.isfile(scriptPath):
-				print(f"{scriptPath} is missing.")
-			self.report({"ERROR"},tr_report("Could not start asset render job. See console. (Window > Toggle System Console)"))
-		return {'FINISHED'}
-	@classmethod
-	def poll(self,context):
-		return bpy.context.scene is not None
-
 class WM_OT_FetchREAssetThumbnails(Operator):
 	bl_label = "Fetch RE Asset Thumbnails"
 	bl_idname = "re_asset.fetch_re_asset_thumbnails"
-	bl_description = "Sets asset browser thumbnails to thumbnails created by the Render RE Asset button.\nThis may take a minute. Blender will freeze temporarily while assets are being assigned thumbnails"
+	bl_description = "Loads supplied thumbnails into the asset browser.\nThis may take a minute. Blender will freeze temporarily while assets are being assigned thumbnails"
 	bl_options = {'INTERNAL'}
 	
 	forceReload : bpy.props.BoolProperty(
@@ -454,7 +362,7 @@ class WM_OT_FetchREAssetThumbnails(Operator):
 			assetCollection = bpy.data.collections.get("RE Assets")
 			if os.path.isdir(thumbnailDirectory) and assetCollection != None:
 				try:
-					bpy.ops.wm.console_toggle()
+					(None if bpy.app.background else bpy.ops.wm.console_toggle())
 				except:
 					pass
 				
@@ -498,7 +406,7 @@ class WM_OT_FetchREAssetThumbnails(Operator):
 				                      separators=(',', ': '))
 				print(f"Saved {CRCInfoPath}")
 				try:
-					bpy.ops.wm.console_toggle()
+					(None if bpy.app.background else bpy.ops.wm.console_toggle())
 				except:
 					pass
 			else:

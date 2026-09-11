@@ -11,10 +11,10 @@ index 6c6c70a..4bcdd13 100644
  .spyproject
 diff --git a/AGENTS.md b/AGENTS.md
 new file mode 100644
-index 0000000..05f1b0f
+index 0000000..26418c9
 --- /dev/null
 +++ b/AGENTS.md
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,47 @@
 +# RE Mesh Editor workspace guide
 +
 +## Key Files
@@ -50,6 +50,7 @@ index 0000000..05f1b0f
 +- Mesh export discovers used vertex groups in one pass per mesh, preserving zero-weight group membership semantics. Workspace dialog changes are lightweight; native DDS encoding runs in an isolated bundled-Python worker and must not crash the host.
 +- The default mesh import should select LOD0. Test all-LOD imports separately rather than treating their combined vertex count as one high-resolution mesh.
 +- UI localization lives in `translations.py`; keep English source strings, operator IDs, RNA property names, file formats and game identifiers unchanged. Register/unregister the table with the add-on lifecycle, and use the `Operator` context plus `pgettext_iface`/`pgettext_tip` helpers for formatted messages.
++- The updater treats `feat/onimusha-wots` as a manual-install branch target; only numeric fork releases/tags may set `update_ready` or report an automatic update.
 +
 +## For AI Agents
 +- Keep changes on `feat/onimusha-wots`; `origin` is the user's `yequ172672/RE-Mesh-Editor-5.2-CN` fork and `upstream` is `NSACloud/RE-Mesh-Editor`.
@@ -104,7 +105,7 @@ index c48c32e..d9a66f9 100644
  
  I am ending development of my RE Engine addons. No further updates or support will be provided.
 diff --git a/__init__.py b/__init__.py
-index b713bed..96fd049 100644
+index b713bed..08f51f6 100644
 --- a/__init__.py
 +++ b/__init__.py
 @@ -1,18 +1,19 @@
@@ -114,7 +115,7 @@ index b713bed..96fd049 100644
 -	"author": "NSA Cloud",
 -	"version": (0, 66),
 +	"author": "NSA Cloud; fork maintainer: yequ172672",
-+	"version": (0, 66, 3),
++	"version": (0, 66, 4),
  	"blender": (4, 3, 2),
  	"location": "File > Import-Export",
  	"description": "Import and export RE Engine Mesh files natively into Blender. No Noesis required.",
@@ -392,6 +393,19 @@ index b713bed..96fd049 100644
  	register()
 -	
 \ No newline at end of file
+diff --git a/addon_updater.py b/addon_updater.py
+index 9ad371a..af8a9e6 100644
+--- a/addon_updater.py
++++ b/addon_updater.py
+@@ -1316,7 +1316,7 @@ class SingletonUpdater:
+                 self._update_version = new_version
+                 self._update_link = link
+                 self.save_updater_json()
+-                return (True, new_version, link)
++                return (False, new_version, link)
+             else:
+                 # Bypass releases and look at timestamp of last update from a
+                 # branch compared to now, see if commit values match or not.
 diff --git a/addon_updater_ops.py b/addon_updater_ops.py
 index 423423d..bccd2de 100644
 --- a/addon_updater_ops.py

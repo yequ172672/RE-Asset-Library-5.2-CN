@@ -26,7 +26,6 @@ class OBJECT_PT_REAssetLibraryPanel(Panel):
 		layout = self.layout
 		layout.operator("re_asset.check_for_library_update",icon="IMPORT")
 		layout.label(text = tr_iface("Thumnbnail Tools"))
-		layout.operator("re_asset.render_re_asset_thumbnails", icon = "SCENE")
 		layout.operator("re_asset.fetch_re_asset_thumbnails", icon = "RENDERLAYERS")
 		layout.label(text = tr_iface("Catalog Tools"))
 		layout.operator("re_asset.import_catalog",icon = "FILE_REFRESH")

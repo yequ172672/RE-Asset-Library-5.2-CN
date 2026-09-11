@@ -416,7 +416,7 @@ Additionally, pak files can be selectively extracted using the Extract Game File
 ### V0.3 - 2/9/2025
 * Changed HDRI used for rendering asset thumbnails.
 * Improved quality of rendered thumbnails.
-* Added configurable options at the top of Resources\Scripts\renderAssets.py.
+* Added configurable thumbnail-rendering options (upstream history; offline rendering tools are not included in this fork).
 
 ### V0.2 - 2/6/2025
 * Fixed issue where thumbnails would not update when using the Check For Library Update button.

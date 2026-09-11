@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "RE Asset Library",
 	"author": "NSA Cloud; fork maintainer: yequ172672",
-	"version": (0, 25, 5),
+	"version": (0, 25, 6),
 	"blender": (4, 3, 0),
 	"location": "Asset Browser > RE Assets",
 	"description": "Quickly search through and import RE Engine meshes.",
@@ -59,6 +59,7 @@ from .modules.asset.blender_re_asset import (
 	)
 from .modules.asset.native_browser import (
 	CLASSES as REENGINE_BROWSER_CLASSES,
+	is_available as is_reengine_browser_available,
 	register as register_reengine_browser,
 	unregister as unregister_reengine_browser,
 	)
@@ -73,7 +74,6 @@ from .modules.asset.re_asset_operators import (
 	download_file_from_google_drive,
 	getChunkPathList,
 	
-	WM_OT_RenderREAssets,
 	WM_OT_FetchREAssetThumbnails,
 	WM_OT_ImportREAssetLibraryFromCatalog,
 	WM_OT_SaveREAssetLibraryToCatalog,
@@ -826,7 +826,6 @@ classes = [
 	
 	
 	WM_OT_OpenFileLocation,
-	WM_OT_RenderREAssets,
 	WM_OT_FetchREAssetThumbnails,
 	WM_OT_ImportREAssetLibraryFromCatalog,
 	WM_OT_SaveREAssetLibraryToCatalog,
@@ -841,6 +840,8 @@ classes = [
 	
 	]
 
+_registered_classes = []
+
 def on_register():
 	if len(bpy.context.preferences.addons[__name__].preferences.fileTypeWhiteList_items) == 0:
 		bpy.ops.re_asset.reset_whitelist_items()
@@ -849,7 +850,14 @@ def register():
 	translations.register(__name__)
 	addon_updater_ops.register(bl_info)
 	for classEntry in classes:
+		# CHANNELS panels only exist in the custom provider build. Official
+		# Blender still needs all regular asset operators for batch workers.
+		if (classEntry in REENGINE_BROWSER_CLASSES
+			and getattr(classEntry, "bl_region_type", None) == "CHANNELS"
+			and not is_reengine_browser_available()):
+			continue
 		bpy.utils.register_class(classEntry)
+		_registered_classes.append(classEntry)
 	# The custom provider is registered only after its action operators and
 	# provider-scoped panel exist.  Blender's official builds simply return
 	# False here and continue using the regular Asset Browser workflow.
@@ -886,8 +894,9 @@ def unregister():
 		print(f"Failed to unregister RE Engine Extension Browser: {err}")
 	translations.unregister(__name__)
 	addon_updater_ops.unregister()
-	for classEntry in classes:
+	for classEntry in reversed(_registered_classes):
 		bpy.utils.unregister_class(classEntry)
+	_registered_classes.clear()
 	bpy.types.ASSETBROWSER_MT_editor_menus.remove(re_asset_settings_button)
 	bpy.types.ASSETBROWSER_MT_editor_menus.remove(re_asset_open_file_location_button)
 	if REAssetPostHandler in bpy.app.handlers.blend_import_post:

@@ -197,7 +197,6 @@ _OPERATORS = {
     "Refresh RE Asset Libraries": "刷新 RE 资产库",
     "Open RE Asset Library Folder": "打开 RE 资产库文件夹",
     "Open Asset Location": "打开资产位置",
-    "Render RE Asset Thumbnails": "渲染 RE 资产缩略图",
     "Fetch RE Asset Thumbnails": "获取 RE 资产缩略图",
     "Initialize RE Asset Library": "初始化 RE 资产库",
     "Reload RE Asset Catalog File": "重新加载 RE 资产目录文件",
@@ -321,10 +320,8 @@ _TOOLTIPS = {
     "Don't report status after running": "运行后不报告状态",
     "Opens the folder containing RE Asset Libraries in File Explorer": "在文件资源管理器中打开包含 RE 资产库的文件夹",
     "Open the location the selected RE Asset is saved to.\nNote that the file has to be extracted to be able to find it's location": "打开所选 RE 资产的保存位置。\n注意：必须先提取文件才能找到其位置。",
-    "Renders thumbnails for all RE assets of a supported type.\nThis will open a new blend file and will take a long time.\nOnly assets without existing thumbnails will be rendered.\nA lot of storage space will be used for cached textures. Consider clearing RE Mesh Editor's texture cache folder after rendering":
-        "为所有受支持类型的 RE 资产渲染缩略图。\n这会打开新的 Blend 文件，并且需要较长时间。\n只会渲染没有现有缩略图的资产。\n缓存纹理会占用大量存储空间；渲染后可以清理 RE Mesh Editor 的纹理缓存文件夹。",
-    "Sets asset browser thumbnails to thumbnails created by the Render RE Asset button.\nThis may take a minute. Blender will freeze temporarily while assets are being assigned thumbnails":
-        "将资产浏览器缩略图设置为“渲染 RE 资产缩略图”创建的缩略图。\n这可能需要几分钟；分配缩略图时 Blender 会暂时冻结。",
+    "Loads supplied thumbnails into the asset browser.\nThis may take a minute. Blender will freeze temporarily while assets are being assigned thumbnails":
+        "将随资产库提供的缩略图载入资产浏览器。\n这可能需要几分钟；分配缩略图时 Blender 会暂时冻结。",
     "Discards all saved thumbnail info and reloads it.": "丢弃所有已保存的缩略图信息并重新加载。",
     "Loads all loadable assets from the REAssetCatalog_XXXX.tsv file in the same directory as the blend file.\nTHIS WILL CLEAR ALL ASSETS FROM THE CURRENT LIBRARY":
         "从与 Blend 文件相同目录中的 REAssetCatalog_XXXX.tsv 文件加载全部可加载资产。\n这会清除当前资产库中的所有资产。",
@@ -399,8 +396,6 @@ _REPORTS = {
     "File not found. It might not be extracted.\nDrag it from the library into the 3D view to extract it.": "找不到文件。文件可能尚未提取。\n将其从资产库拖入 3D 视图即可提取。",
     "No chunk paths for {gameName} are present.": "不存在 {gameName} 的 Chunk 路径。",
     "Asset is not an RE Asset.": "该资产不是 RE 资产。",
-    "Started asset render job.": "已开始资产渲染任务。",
-    "Could not start asset render job. See console. (Window > Toggle System Console)": "无法开始资产渲染任务。请查看控制台（窗口 > 切换系统控制台）。",
     "RE Asset thumbnails have not been rendered. Cannot retrieve.": "RE 资产缩略图尚未渲染，无法获取。",
     "Fetched RE Asset thumbnails.": "已获取 RE 资产缩略图。",
     "Game name not set.": "未设置游戏名称。",

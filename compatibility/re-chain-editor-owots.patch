@@ -1,5 +1,96 @@
+diff --git a/.gitignore b/.gitignore
+index 7e99e36..5282bd6 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1 +1,2 @@
+-*.pyc
+\ No newline at end of file
++*.pyc
++*_updater/
+diff --git a/AGENTS.md b/AGENTS.md
+new file mode 100644
+index 0000000..76e400b
+--- /dev/null
++++ b/AGENTS.md
+@@ -0,0 +1,34 @@
++# RE Chain Editor
++
++## Key Files
++
++| Path | Purpose |
++| --- | --- |
++| `__init__.py` | Blender add-on registration and supported Chain/Chain2 version lists. |
++| `translations.py` | Blender 5.2 `zh_CN`/`zh_HANS` translation tables and dynamic text helpers. |
++| `LOCALIZATION.md` | Short guide to translation contexts, dynamic helpers, and isolated Blender validation. |
++| `modules/file_re_chain2.py` | Chain2 binary reader/writer, including version-specific header layouts. |
++| `tests/test_chain2_versions.py` | Regression coverage for v15 and Onimusha v17 binary layouts. |
++| `tools/validate_chain2_sample.py` | Reproducible pure Python report for a real Chain2 sample. |
++| `tools/validate_chain2_blender.py` | Headless Blender mesh-armature plus Chain2 import validation. |
++
++## Subdirectories
++
++| Directory | Purpose |
++| --- | --- |
++| `modules/` | Blender integration and binary format implementation. |
++| `tests/` | Pure Python parser regression tests. |
++| `tools/` | Standalone parser validation utilities. |
++
++## Common Patterns
++
++- Keep OWOTS changes on `feat/onimusha-wots`; `origin` is the user's `yequ172672/RE-Chain-Editor-5.2-CN` fork and `upstream` is `NSACloud/RE-Chain-Editor`.
++- Keep a Chain2 file version in `modules/file_re_chain2.py::supportedVersionSet` and the Blender file-handler set in `__init__.py` together.
++- Version 17 omits two header offsets, inserts an eight-byte reserved block, and uses a 112-byte header with no older cfil offset tail; both read and write paths must preserve that layout.
++- Run parser tests without Blender; use Blender 5.2 headless only for add-on registration and scene import checks.
++- Keep Chinese localization in `translations.py`; register both `zh_CN` and `zh_HANS` through `bpy.app.translations` and preserve `*`/`Operator` contexts, English fallback, format identifiers, and game IDs.
++- The updater treats `feat/onimusha-wots` as a manual-install branch target; only numeric fork releases/tags may set `update_ready` or report an automatic update.
++
++- Preserve upstream authorship and label yequ172672 as fork maintainer. Preferences and README link to `https://github.com/yequ172672/RE-Chain-Editor-5.2-CN`; updater releases/tags use this fork and the explicit `feat/onimusha-wots` branch option. Do not fall back to upstream or the updater default master branch.
++
++- The N-sidebar RE Chain tab includes a default-collapsed Fork Maintenance panel declared in `__init__.py`; keep it visible without an active object and respect the existing tab hide flag.
+diff --git a/LOCALIZATION.md b/LOCALIZATION.md
+new file mode 100644
+index 0000000..acec11c
+--- /dev/null
++++ b/LOCALIZATION.md
+@@ -0,0 +1,7 @@
++# RE Chain Editor localization
++
++The add-on keeps Chinese translations in the root [`translations.py`](translations.py) module. It registers two equivalent language tables, `zh_CN` and `zh_HANS`, through Blender 5.2's `bpy.app.translations` API. Interface labels and RNA property text use the default `*` context; operator labels, popups, and reports use the `Operator` context.
++
++Registering the add-on calls `translations.register()` and unloading it calls `translations.unregister()`. The `interface()`, `tip()`, and `report()` helpers are for dynamic text, so formatting happens after Blender resolves the translated template. When Blender runs in English, the same helpers return the original source strings. File extensions, format identifiers, enum values used by the binary readers, and game IDs remain unchanged.
++
++To validate the table without changing a live Blender profile, run a factory-startup Blender 5.2 background script that sets the in-memory locale to `zh_HANS`, imports the add-on, calls `register()` and `unregister()`, and checks representative `pgettext_iface()`/`pgettext_tip()` results. Do not save preferences from that script.
+diff --git a/README.md b/README.md
+index 8fc6369..e772210 100644
+--- a/README.md
++++ b/README.md
+@@ -1,3 +1,24 @@
++<!-- FORK-MAINTENANCE -->
++## 分支作者与维护说明
++
++本分支由 **yequ172672** 维护，负责 Blender 5.2 适配、中文本地化和 OWOTS 支持。保留原作者及贡献者署名与原项目许可证。
++
++- 分叉仓库：[RE-Chain-Editor-5.2-CN](https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/tree/feat/onimusha-wots)
++- 问题反馈：[分支 Issues](https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/issues)
++- 插件内“检查更新”查询本分叉的发行版 / 标签；更新版本菜单另提供 `feat/onimusha-wots` 开发分支。开发分支更新是手动安装分支快照，不代表按提交检测新版本。
++
++<!-- /FORK-MAINTENANCE -->
++
++# RE-Chain-Editor-5.2-CN
++
++本分叉提供 Blender 5.2 下的 Onimusha: Way of the Sword 适配与简体中文界面。维护代码位于 [`feat/onimusha-wots`](https://github.com/yequ172672/RE-Chain-Editor-5.2-CN/tree/feat/onimusha-wots) 分支；`main` 保留上游版本。
++
++在 Blender「编辑 → 偏好设置 → 界面 → 翻译」中选择简体中文，并启用界面和工具提示翻译。插件会随 Blender 语言切换，英文环境仍显示英文；文件格式标识、游戏代号和操作符接口保持原样。
++
++建议安装打包后的 `RE-Chain-Editor-5.2-CN.zip`。ZIP 文件名可以带 `5.2-CN`，但 ZIP 内部的顶层模块目录必须保持 `RE-Asset-Library-main`、`RE-Mesh-Editor-main`、`RE-Chain-Editor-main`，以兼容已有插件设置。不要直接安装 GitHub「Code → Download ZIP」源码包，也不要把内部目录改成带点号的 `*-5.2-CN`；Blender 会把点号当作 Python 模块分隔符，导致 `No module named '...-5'`。安装新版时替换同名旧插件，避免同时启用多个副本。
++
++---
++
+ # End Of Support Notice
+ 
+ I am ending development of my RE Engine addons. No further updates or support will be provided.
 diff --git a/__init__.py b/__init__.py
-index 26200ca..ad563a5 100644
+index 26200ca..cffd52b 100644
 --- a/__init__.py
 +++ b/__init__.py
 @@ -1,13 +1,13 @@
@@ -8,7 +99,7 @@ index 26200ca..ad563a5 100644
 -	"author": "NSA Cloud, alphaZomega",
 -	"version": (14, 0),
 +	"author": "NSA Cloud, alphaZomega; fork maintainer: yequ172672",
-+	"version": (14, 0, 2),
++	"version": (14, 0, 3),
  	"blender": (3, 1, 2),
  	"location": "File > Import-Export",
  	"description": "Import and export RE Engine chain files.",
@@ -207,6 +298,19 @@ index 26200ca..ad563a5 100644
 -	register()
 \ No newline at end of file
 +	register()
+diff --git a/addon_updater.py b/addon_updater.py
+index 70492dc..0a10b70 100644
+--- a/addon_updater.py
++++ b/addon_updater.py
+@@ -1316,7 +1316,7 @@ class SingletonUpdater:
+                 self._update_version = new_version
+                 self._update_link = link
+                 self.save_updater_json()
+-                return (True, new_version, link)
++                return (False, new_version, link)
+             else:
+                 # Bypass releases and look at timestamp of last update from a
+                 # branch compared to now, see if commit values match or not.
 diff --git a/addon_updater_ops.py b/addon_updater_ops.py
 index 9fdb901..0c9b747 100644
 --- a/addon_updater_ops.py
@@ -264,6 +368,26 @@ index 9fdb901..0c9b747 100644
  
      # Only allow manual install, thus prompting the user to open
      # the addon's web page to download, specifically: updater.website
+diff --git a/modules/AGENTS.md b/modules/AGENTS.md
+new file mode 100644
+index 0000000..616e2fa
+--- /dev/null
++++ b/modules/AGENTS.md
+@@ -0,0 +1,14 @@
++# modules
++
++## Key Files
++
++| Path | Purpose |
++| --- | --- |
++| `file_re_chain2.py` | Binary Chain2 reader/writer and version specific layout handling. |
++| `blender_re_chain.py` | Converts parsed Chain2 data into Blender collections and objects. |
++
++## Common Patterns
++
++- Keep file version constants and `supportedVersionSet` in `file_re_chain2.py` aligned with the game list extensions.
++- Chain2 version 17 omits the collision-attribute and extra-data header offsets, inserts eight reserved bytes after the remaining offsets, and ends at the 112-byte null tail before settings; preserve this conditional layout in both `read` and `write`.
++- Keep Blender object conversion independent from binary layout changes; parsed offsets should be resolved by `Chain2File.read` before `blender_re_chain.py` consumes the data.
 diff --git a/modules/blender_re_chain.py b/modules/blender_re_chain.py
 index c7d3920..efb8d8b 100644
 --- a/modules/blender_re_chain.py
@@ -1080,6 +1204,607 @@ index 6025796..ab870e4 100644
 -		layout.prop(re_chain_toolpanel, "chainGroupColor")
 \ No newline at end of file
 +		layout.prop(re_chain_toolpanel, "chainGroupColor")
+diff --git a/tests/AGENTS.md b/tests/AGENTS.md
+new file mode 100644
+index 0000000..6c09159
+--- /dev/null
++++ b/tests/AGENTS.md
+@@ -0,0 +1,15 @@
++# tests
++
++## Key Files
++
++| Path | Purpose |
++| --- | --- |
++| `test_chain2_versions.py` | Pure Python regression tests for independent v15/v17 header layouts and non-zero Chain2 data roundtrips. |
++| `test_geometry_modifier_inputs.py` | Checks Blender 3/4 legacy keys and Blender 5 modifier input properties. |
++
++## Common Patterns
++
++- On this workstation run `$env:PYTHONDONTWRITEBYTECODE='1'; & 'D:\\codeprogram\\Python\\python.exe' -m pytest --rootdir tests --import-mode=importlib tests/test_chain2_versions.py` from the add-on root (Python 3.14.6 / pytest 9.1.1); the explicit test root prevents pytest from importing the Blender add-on `__init__.py`.
++- A PATH-independent alternative is `uv run --no-project --with pytest python -m pytest --rootdir tests --import-mode=importlib tests/test_chain2_versions.py`.
++- The header fixture is assembled with `struct`, independently of `Chain2HeaderData.write`, so offset and reserved-byte regressions are caught.
++- The data fixture uses non-zero settings, group/node, wind, and link values for both v15 and v17.
+diff --git a/tests/test_chain2_versions.py b/tests/test_chain2_versions.py
+new file mode 100644
+index 0000000..860fa74
+--- /dev/null
++++ b/tests/test_chain2_versions.py
+@@ -0,0 +1,258 @@
++"""Regression coverage for Chain2 v15 and Onimusha v17 binary layouts."""
++
++from __future__ import annotations
++
++from io import BytesIO
++from pathlib import Path
++import struct
++import sys
++
++import pytest
++
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT))
++
++from modules import file_re_chain2 as chain2  # noqa: E402
++
++
++MAGIC = 846096483
++
++
++def independent_header_bytes(version: int) -> bytes:
++    """Build a header from the REE-Lib field order, without HeaderData.write."""
++
++    prefix = struct.pack("<4I", version, MAGIC, 0x10203040, 0x55667788)
++    offsets = (
++        0x1111111111111111,
++        0x2222222222222222,
++        0x3333333333333333,
++        0x4444444444444444,
++        0x5555555555555555,
++        0x6666666666666666,
++    )
++    if version < 17:
++        prefix += struct.pack(
++            "<8Q",
++            0xAAAAAAAAAAAAAAAA,
++            offsets[0],
++            0xBBBBBBBBBBBBBBBB,
++            *offsets[1:],
++        )
++    else:
++        prefix += struct.pack("<6Q", *offsets) + b"\x00" * 8
++
++    # Eight one-byte counts/enums, followed by flags, step time, and hit flags.
++    prefix += struct.pack(
++        "<8B2I f12B",
++        1,
++        2,
++        3,
++        4,
++        5,
++        6,
++        7,
++        8,
++        0x77777777,
++        0x88888888,
++        1.25,
++        9,
++        10,
++        11,
++        12,
++        13,
++        14,
++        15,
++        16,
++        17,
++        18,
++        19,
++        20,
++    )
++    if version >= 12:
++        prefix += struct.pack(
++            "<HHBBHII",
++            0x1212,
++            0x3434,
++            0x56,
++            0x78,
++            0x9A9A,
++            0xBCBCBCBC,
++            0xDEDEDEDE,
++        )
++        if version >= 17:
++            # OWOTS ends after the two-byte null tail; the bytes that would
++            # be the older cfil offset are the first settings record.
++            prefix = prefix[:-8]
++    return prefix
++
++
++def test_header_layout_is_independent_for_v15_and_v17():
++    v15 = independent_header_bytes(15)
++    assert len(v15) == 128
++    assert struct.unpack_from("<8Q", v15, 16) == (
++        0xAAAAAAAAAAAAAAAA,
++        0x1111111111111111,
++        0xBBBBBBBBBBBBBBBB,
++        0x2222222222222222,
++        0x3333333333333333,
++        0x4444444444444444,
++        0x5555555555555555,
++        0x6666666666666666,
++    )
++
++    v17 = independent_header_bytes(17)
++    assert len(v17) == 112
++    assert struct.unpack_from("<6Q", v17, 16) == (
++        0x1111111111111111,
++        0x2222222222222222,
++        0x3333333333333333,
++        0x4444444444444444,
++        0x5555555555555555,
++        0x6666666666666666,
++    )
++    assert v17[64:72] == b"\x00" * 8
++
++    parsed = chain2.Chain2HeaderData()
++    parsed.read(BytesIO(v17))
++    assert parsed.version == 17
++    assert parsed.collisionAttrAssetOffset == 0
++    assert parsed.extraDataOffset == 0
++    assert parsed.chainModelCollisionOffset == 0x1111111111111111
++    assert parsed.chainGroupOffset == 0x2222222222222222
++    assert parsed.chainSettingsOffset == 0x5555555555555555
++
++
++def make_nonzero_file(version: int) -> chain2.Chain2File:
++    file = chain2.Chain2File()
++    file.Header.version = version
++    file.Header.chainSettingsCount = 1
++    file.Header.chainGroupCount = 1
++    file.Header.chainWindSettingsCount = 1
++    file.Header.chainLinkCount = 1
++
++    setting = chain2.Chain2SettingsData()
++    setting.id = 0x1234
++    setting.settingsAttrFlags = 0xA5
++    setting.springCalcType = 3
++    setting.windID = -2
++    setting.motionForce = 1.25
++    setting.groupDefaultAttr = 0x87654321
++    setting.windEffectCoef = 0.75
++    setting.velocityLimit = 12.5
++    setting.hardness = 0.33
++    setting.motionForceCalcType = 4
++    file.ChainSettingsList.append(setting)
++
++    node = chain2.Chain2NodeData()
++    node.angleLimitDirectionX = 0.1
++    node.angleLimitDirectionW = 0.9
++    node.angleLimitRad = 0.42
++    node.collisionFilterFlags = 0x12345678
++    node.attrFlags = 0xABCDEF01
++    node.constraintJntNameHash = 0x13572468
++    node.windCoef = 0.66
++    node.angleMode = 2
++    node.collisionShape = 3
++    node.attachType = 4
++    node.rotationType = 5
++    node.gravityCoef = 0.8
++    node.jointHash = 0x24681357
++    node.basePos = (1.0, 2.0, 3.0)
++
++    group = chain2.Chain2GroupData()
++    group.settingID = setting.id
++    group.nodeCount = 1
++    group.rotationOrder = 2
++    group.autoBlendCheckNodeNo = 3
++    group.windID = 1
++    group.tag0 = 0x10203040
++    group.hierarchyHash0 = 0x50607080
++    group.dampingNoise0 = 0.2
++    group.endRotConstMax = 8.5
++    group.attrFlags = 0x11112222
++    group.clspFlags0 = 0x33334444
++    group.clspFlags1 = 0x55556666
++    group.interpCount = 7
++    group.nodeInterpolationMode = 8
++    group.nodeList.append(node)
++    file.ChainGroupList.append(group)
++
++    wind = chain2.Chain2WindSettingsData()
++    wind.id = 1
++    wind.windDirection = 2
++    wind.windCount = 3
++    wind.windType = 4
++    wind.randomDamping = 0.25
++    wind.dir0X = 0.5
++    wind.max0 = 1.5
++    file.WindSettingsList.append(wind)
++
++    link = chain2.Chain2LinkData()
++    link.terminateNodeNameHashA = 0x01020304
++    link.terminateNodeNameHashB = 0x05060708
++    link.distanceShrinkLimitCoef = 0.4
++    link.distanceExpandLimitCoef = 1.6
++    link.clspFlags0 = 0x11111111
++    link.clspFlags1 = 0x22222222
++    link.linkMode = 2
++    link.connectFlags = 3
++    link.linkAttrFlags = 4
++    link.nodeCount = 1
++    link.skipGroupA = 5
++    link.skipGroupB = 6
++    link.linkOrder = 7
++    link_node = chain2.Chain2LinkNode()
++    link_node.collisionRadius = 0.77
++    link_node.collisionFilterFlags = 0x12345678
++    link.nodeColLinkList.append(link_node)
++    file.ChainLinkList.append(link)
++    return file
++
++
++@pytest.mark.parametrize("version", [15, 17])
++def test_nonzero_settings_group_node_wind_and_link_roundtrip(version: int):
++    source = make_nonzero_file(version)
++    stream = BytesIO()
++    source.write(stream)
++
++    stream.seek(0)
++    parsed = chain2.Chain2File()
++    parsed.read(stream)
++
++    assert parsed.Header.version == version
++    assert parsed.Header.chainSettingsCount == 1
++    assert parsed.Header.chainGroupCount == 1
++    assert parsed.Header.chainWindSettingsCount == 1
++    assert parsed.Header.chainLinkCount == 1
++
++    setting = parsed.ChainSettingsList[0]
++    assert setting.id == 0x1234
++    assert setting.settingsAttrFlags == 0xA5
++    assert setting.windID == -2
++    assert setting.motionForce == pytest.approx(1.25)
++    assert setting.groupDefaultAttr == 0x87654321
++
++    group = parsed.ChainGroupList[0]
++    assert group.settingID == 0x1234
++    assert group.tag0 == 0x10203040
++    assert group.attrFlags == 0x11112222
++    assert group.nodeInterpolationMode == 8
++    node = group.nodeList[0]
++    assert node.constraintJntNameHash == 0x13572468
++    assert node.jointHash == 0x24681357
++    assert node.basePos == pytest.approx((1.0, 2.0, 3.0))
++
++    wind = parsed.WindSettingsList[0]
++    assert wind.id == 1
++    assert wind.windDirection == 2
++    assert wind.windType == 4
++    assert wind.randomDamping == pytest.approx(0.25)
++
++    link = parsed.ChainLinkList[0]
++    assert link.terminateNodeNameHashA == 0x01020304
++    assert link.terminateNodeNameHashB == 0x05060708
++    assert link.clspFlags0 == 0x11111111
++    assert link.clspFlags1 == 0x22222222
++    assert link.nodeColLinkList[0].collisionRadius == pytest.approx(0.77)
++    assert link.nodeColLinkList[0].collisionFilterFlags == 0x12345678
+diff --git a/tests/test_geometry_modifier_inputs.py b/tests/test_geometry_modifier_inputs.py
+new file mode 100644
+index 0000000..1d6796f
+--- /dev/null
++++ b/tests/test_geometry_modifier_inputs.py
+@@ -0,0 +1,44 @@
++"""Geometry Nodes modifier input compatibility tests without Blender."""
++
++from __future__ import annotations
++
++import importlib
++from types import SimpleNamespace
++import sys
++
++
++def load_utils(monkeypatch, version):
++    fake_bpy = SimpleNamespace(app=SimpleNamespace(version=version))
++    monkeypatch.setitem(sys.modules, "bpy", fake_bpy)
++    sys.modules.pop("modules.blender_utils", None)
++    return importlib.import_module("modules.blender_utils")
++
++
++def test_legacy_modifier_keys_are_preserved(monkeypatch):
++    utils = load_utils(monkeypatch, (3, 6, 0))
++    modifier = {}
++    assert utils.setGeometryNodeModifierInput(modifier, 0, 1.25)
++    assert modifier == {"Input_0": 1.25}
++
++    utils = load_utils(monkeypatch, (4, 3, 0))
++    modifier = {}
++    assert utils.setGeometryNodeModifierInput(modifier, 1, "node")
++    assert modifier == {"Socket_1": "node"}
++
++
++def test_blender5_modifier_properties_inputs_are_used(monkeypatch):
++    utils = load_utils(monkeypatch, (5, 2, 0))
++
++    class Socket:
++        def __init__(self):
++            self.value = None
++
++    modifier = SimpleNamespace(
++        properties=SimpleNamespace(
++            inputs=SimpleNamespace(Socket_0=Socket(), Socket_1=Socket())
++        )
++    )
++    assert utils.setGeometryNodeModifierInput(modifier, 0, 0.5)
++    assert utils.setGeometryNodeModifierInput(modifier, 1, "obj")
++    assert modifier.properties.inputs.Socket_0.value == 0.5
++    assert modifier.properties.inputs.Socket_1.value == "obj"
+diff --git a/tools/AGENTS.md b/tools/AGENTS.md
+new file mode 100644
+index 0000000..4c88436
+--- /dev/null
++++ b/tools/AGENTS.md
+@@ -0,0 +1,15 @@
++# tools
++
++## Key Files
++
++| Path | Purpose |
++| --- | --- |
++| `validate_chain2_sample.py` | Parses a real Chain2 file and emits header, object counts, and SHA256 as JSON. |
++| `validate_chain2_blender.py` | Imports a Chain2 file after importing its mesh armature and checks Blender object counts and 5.2 callback errors. |
++
++## Common Patterns
++
++- Run with the add-on root as the working directory and the full Python path when the PATH Python lacks pytest.
++- The validator uses the same pure Python parser as the add-on and does not require Blender or modify the input file.
++- Use `--output` to preserve a JSON report beside validation samples.
++- Run the Blender validator with `--import-unknowns --expected-groups 22 --expected-nodes 82 --expected-links 10 --strict` for the OWOTS ch001 sample; missing hashed bones remain explicit in the report unless `--fail-on-missing-bones` is requested.
+diff --git a/tools/validate_chain2_blender.py b/tools/validate_chain2_blender.py
+new file mode 100644
+index 0000000..5b66608
+--- /dev/null
++++ b/tools/validate_chain2_blender.py
+@@ -0,0 +1,157 @@
++"""Validate a Chain2 import against an extracted mesh armature in Blender."""
++
++from __future__ import annotations
++
++import argparse
++from contextlib import redirect_stderr, redirect_stdout
++import importlib
++import io
++import json
++from pathlib import Path
++import sys
++
++import bpy
++
++
++def parse_args() -> argparse.Namespace:
++    try:
++        separator = sys.argv.index("--")
++        argv = sys.argv[separator + 1 :]
++    except ValueError:
++        argv = []
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--mesh", required=True, help="Extracted .mesh.<version> path")
++    parser.add_argument("--chain", required=True, help="Extracted .chain2.<version> path")
++    parser.add_argument("--mesh-addon", required=True, help="RE Mesh Editor add-on directory")
++    parser.add_argument("--chain-addon", required=True, help="RE Chain Editor add-on directory")
++    parser.add_argument("--import-unknowns", action="store_true")
++    parser.add_argument("--expected-groups", type=int)
++    parser.add_argument("--expected-nodes", type=int)
++    parser.add_argument("--expected-links", type=int)
++    parser.add_argument("--fail-on-missing-bones", action="store_true")
++    parser.add_argument("--strict", action="store_true")
++    parser.add_argument("--output", type=Path)
++    return parser.parse_args(argv)
++
++
++def enable_addon(path_value: str):
++    addon_path = Path(path_value).expanduser().resolve()
++    if str(addon_path.parent) not in sys.path:
++        sys.path.insert(0, str(addon_path.parent))
++    result = bpy.ops.preferences.addon_enable(module=addon_path.name)
++    if "FINISHED" not in result:
++        raise RuntimeError("Failed to enable %s: %s" % (addon_path.name, result))
++    return importlib.import_module(addon_path.name)
++
++
++def main() -> int:
++    args = parse_args()
++    mesh_path = Path(args.mesh).expanduser().resolve()
++    chain_path = Path(args.chain).expanduser().resolve()
++    mesh_addon = enable_addon(args.mesh_addon)
++    enable_addon(args.chain_addon)
++    chain_impl = importlib.import_module(
++        Path(args.chain_addon).resolve().name + ".modules.blender_re_chain"
++    )
++    mesh_options = {
++        "clearScene": True,
++        "createCollections": True,
++        "loadMaterials": False,
++        "loadMDFData": False,
++        "loadShellFur": False,
++        "loadUnusedTextures": False,
++        "loadUnusedProps": False,
++        "useBackfaceCulling": False,
++        "reloadCachedTextures": False,
++        "mdfPath": "",
++        "importAllLODs": True,
++        "importBlendShapes": True,
++        "rotate90": True,
++        "mergeArmature": "",
++        "importArmatureOnly": False,
++        "mergeGroups": False,
++        "importShadowMeshes": False,
++        "importOcclusionMeshes": False,
++        "importBoundingBoxes": False,
++    }
++    log_buffer = io.StringIO()
++    with redirect_stdout(log_buffer), redirect_stderr(log_buffer):
++        mesh_impl = getattr(mesh_addon, "importREMeshFile")
++        mesh_warnings, mesh_errors = mesh_impl(str(mesh_path), mesh_options)
++        armature = next(
++            (obj for obj in bpy.data.objects if obj.type == "ARMATURE"), None
++        )
++        chain_result = False
++        if armature is not None:
++            chain_result = chain_impl.importChainFile(
++                str(chain_path),
++                {
++                    "targetArmature": armature.data.name,
++                    "mergeChain": "",
++                    "importUnknowns": args.import_unknowns,
++                },
++                isChain2=True,
++            )
++
++    log = log_buffer.getvalue()
++    clean_lines = [line.strip() for line in log.splitlines() if line.strip()]
++    type_errors = [line for line in clean_lines if "bpy_struct[key]" in line]
++    missing_bones = [line for line in clean_lines if "Could not find hashed bone" in line]
++    group_count = sum(
++        1 for obj in bpy.data.objects if obj.get("TYPE") == "RE_CHAIN_CHAINGROUP"
++    )
++    node_count = sum(
++        1 for obj in bpy.data.objects if obj.get("TYPE") == "RE_CHAIN_NODE"
++    )
++    link_count = sum(
++        1 for obj in bpy.data.objects if obj.get("TYPE") == "RE_CHAIN_LINK"
++    )
++    summary = {
++        "mesh": str(mesh_path),
++        "chain": str(chain_path),
++        "importUnknowns": args.import_unknowns,
++        "meshWarnings": list(mesh_warnings or []),
++        "meshErrors": list(mesh_errors or []),
++        "chainResult": bool(chain_result),
++        "armatureObjects": sum(1 for obj in bpy.data.objects if obj.type == "ARMATURE"),
++        "armatureBones": sum(
++            len(obj.data.bones) for obj in bpy.data.objects if obj.type == "ARMATURE"
++        ),
++        "chainGroups": group_count,
++        "chainNodes": node_count,
++        "chainLinks": link_count,
++        "missingHashedBones": missing_bones,
++        "typeErrors": type_errors,
++        "tracebackLines": [line for line in clean_lines if "Traceback" in line],
++    }
++    strict_failures = []
++    if args.strict:
++        if not summary["chainResult"]:
++            strict_failures.append("Chain2 import returned failure")
++        if summary["typeErrors"]:
++            strict_failures.append("Blender 5 geometry modifier TypeErrors were logged")
++        if summary["tracebackLines"]:
++            strict_failures.append("Traceback was logged during import")
++        if args.fail_on_missing_bones and summary["missingHashedBones"]:
++            strict_failures.append("hashed bones are missing from the armature")
++        for key, expected in (
++            ("chainGroups", args.expected_groups),
++            ("chainNodes", args.expected_nodes),
++            ("chainLinks", args.expected_links),
++        ):
++            if expected is not None and summary[key] != expected:
++                strict_failures.append(
++                    "%s=%s, expected %s" % (key, summary[key], expected)
++                )
++    summary["strictFailures"] = strict_failures
++    summary["ok"] = not strict_failures
++    if args.output:
++        args.output.expanduser().resolve().write_text(
++            json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
++        )
++    print(json.dumps(summary, indent=2, ensure_ascii=False))
++    return 0 if summary["ok"] else 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tools/validate_chain2_sample.py b/tools/validate_chain2_sample.py
+new file mode 100644
+index 0000000..68f5072
+--- /dev/null
++++ b/tools/validate_chain2_sample.py
+@@ -0,0 +1,76 @@
++"""Parse one Chain2 file and print a compact structural validation report."""
++
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++from pathlib import Path
++import sys
++
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT))
++
++from modules.file_re_chain2 import readREChain2  # noqa: E402
++
++
++def build_report(path: Path) -> dict:
++    chain_file = readREChain2(str(path))
++    header = chain_file.Header
++    return {
++        "input": str(path),
++        "bytes": path.stat().st_size,
++        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
++        "header": {
++            "version": header.version,
++            "magic": "0x%08X" % header.magic,
++            "masterSize": header.masterSize,
++            "groupCount": header.chainGroupCount,
++            "settingsCount": header.chainSettingsCount,
++            "modelCollisionCount": header.chainModelCollisionCount,
++            "windSettingCount": header.chainWindSettingsCount,
++            "linkCount": header.chainLinkCount,
++            "offsets": {
++                "modelCollision": header.chainModelCollisionOffset,
++                "groups": header.chainGroupOffset,
++                "links": header.chainLinkOffset,
++                "freeLinks": header.chainFreeLinkOffset,
++                "settings": header.chainSettingsOffset,
++                "windSettings": header.chainWindSettingsOffset,
++            },
++        },
++        "counts": {
++            "groups": len(chain_file.ChainGroupList),
++            "settings": len(chain_file.ChainSettingsList),
++            "collisions": len(chain_file.ChainCollisionList),
++            "windSettings": len(chain_file.WindSettingsList),
++            "links": len(chain_file.ChainLinkList),
++            "nodes": sum(len(group.nodeList) for group in chain_file.ChainGroupList),
++            "subGroups": sum(len(group.subGroupList) for group in chain_file.ChainGroupList),
++            "linkNodes": sum(len(link.nodeColLinkList) for link in chain_file.ChainLinkList),
++            "settingSubData": sum(
++                len(setting.subDataList) for setting in chain_file.ChainSettingsList
++            ),
++        },
++    }
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("chain", type=Path, help="Path to a .chain2.<version> file")
++    parser.add_argument("--output", type=Path, help="Optional JSON report path")
++    args = parser.parse_args()
++    path = args.chain.expanduser().resolve()
++    if not path.is_file():
++        parser.error("Chain2 file does not exist: %s" % path)
++    report = build_report(path)
++    output = json.dumps(report, indent=2, ensure_ascii=False)
++    if args.output:
++        args.output.expanduser().resolve().write_text(output, encoding="utf-8")
++    print(output)
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
 diff --git a/translations.py b/translations.py
 new file mode 100644
 index 0000000..858ab63

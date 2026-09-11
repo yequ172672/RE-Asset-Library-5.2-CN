@@ -40,6 +40,9 @@
 - Keep Chinese UI text in `translations.py`; preserve operator IDs, RNA property names, file extensions and game identifiers in source/data.
 - Register both `zh_HANS` and the `zh_CN` compatibility alias through `bpy.app.translations`; use context-aware helpers for dynamic labels and reports.
 - Keep GameInfo, asset catalog paths, extraction caches and dependency editor game identifiers consistent.
+- Ship baked asset previews as library data. Do not include offline thumbnail rendering scripts, job schedulers, or generation UI in this add-on; retain preview loading for supplied libraries.
+- Register the custom browser CHANNELS panel only when its bridge is available so official Blender can load libraries; track registered classes for symmetric teardown.
+- The updater treats `feat/onimusha-wots` as a manual-install branch target; only numeric fork releases/tags may set `update_ready` or report an automatic update.
 - Validate PAK decoding through both direct and cached/batch extraction. A readable index does not prove correct resource extraction.
 - Shared extension numbers do not guarantee identical layouts: WotS has a distinct MDF 51 variant.
 
